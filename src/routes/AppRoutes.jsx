@@ -1,5 +1,8 @@
 ﻿import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Hero from "../components/landing/Hero";
+import Dashboard from "../pages/Dashboard";
+import Login from "../pages/Login";
+import Workspace from "../pages/Workspace";
 
 function Home() {
   return <Hero />;
@@ -22,6 +25,9 @@ export default function AppRoutes() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/workspace" element={<Workspace />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

@@ -1,4 +1,5 @@
 ﻿import { Menu, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const links = [
   { label: "Home", href: "#home" },
@@ -30,9 +31,9 @@ export default function Navbar() {
           ))}
         </nav>
 
-        <a href="#cta" className="hidden items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-[0_8px_30px_rgba(37,99,235,0.15)] transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 md:inline-flex">
+        <Link to="/login" className="hidden items-center justify-center rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-[0_8px_30px_rgba(37,99,235,0.15)] transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/10 md:inline-flex">
           Get Started
-        </a>
+        </Link>
 
         <button aria-label="Open navigation" className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 p-2 text-white transition hover:bg-white/10 md:hidden">
           <Menu className="h-5 w-5" />
