@@ -12,8 +12,9 @@ import {
   Sparkle,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getStoredToken, loginUser, setAuthToken } from "../services/api";
 
 const stats = [
   { label: "Live AI Agent Status", value: "Online", tone: "text-emerald-300" },
@@ -47,11 +48,21 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (getStoredToken()) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate]);
 
   function handleChange(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
     setErrors((current) => ({ ...current, [name]: "" }));
+    setApiError("");
   }
 
   function validate() {
@@ -71,9 +82,30 @@ export default function Login() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    validate();
+    if (!validate()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setApiError("");
+
+    try {
+      const response = await loginUser({ email: form.email, password: form.password });
+      const token = response?.data?.token;
+      if (token) {
+        setAuthToken(token);
+        navigate("/dashboard", { replace: true });
+      } else {
+        setApiError("Authentication did not return a token.");
+      }
+    } catch (error) {
+      const message = error?.response?.data?.message || "Unable to sign in right now. Please verify the backend is running.";
+      setApiError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -137,6 +169,8 @@ export default function Login() {
                   </button>
                 </div>
 
+                {apiError ? <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{apiError}</p> : null}
+
                 <div className="flex items-center justify-between gap-3 pt-1 text-sm">
                   <label className="flex items-center gap-2 text-slate-400">
                     <input
@@ -156,9 +190,10 @@ export default function Login() {
                   whileHover={{ scale: 1.01, y: -1 }}
                   whileTap={{ scale: 0.99 }}
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_16px_50px_rgba(37,99,235,0.25)] transition hover:shadow-[0_20px_55px_rgba(124,58,237,0.24)]"
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_16px_50px_rgba(37,99,235,0.25)] transition hover:shadow-[0_20px_55px_rgba(124,58,237,0.24)] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Sign In
+                  {isSubmitting ? "Signing in..." : "Sign In"}
                   <ArrowRight className="h-4 w-4" />
                 </motion.button>
 

@@ -9,9 +9,7 @@ import {
   ChevronRight,
   Clock3,
   Compass,
-  CreditCard,
   LayoutDashboard,
-  LifeBuoy,
   LogOut,
   MessageSquareText,
   Moon,
@@ -35,6 +33,9 @@ import {
   Legend,
 } from "chart.js";
 import { Bar as BarChart, Doughnut as DoughnutChart, Line as LineChart } from "react-chartjs-2";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { clearAuthToken, getAIMetrics, getAIHealth, getConversations, getCustomers, getTickets } from "../services/api";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend);
 
@@ -47,29 +48,13 @@ const sidebarItems = [
   { label: "Settings", icon: Settings },
 ];
 
-const stats = [
-  { title: "Total Customers", value: "24.8K", delta: "+12.4%", icon: Users, trend: "up" },
-  { title: "Open Tickets", value: "184", delta: "+8.2%", icon: MessageSquareText, trend: "up" },
-  { title: "Resolved Today", value: "96", delta: "+15.1%", icon: ShieldCheck, trend: "up" },
-  { title: "Pending Escalations", value: "17", delta: "-4.3%", icon: AlertTriangle, trend: "down" },
-  { title: "Customer Satisfaction", value: "4.9/5", delta: "+0.6", icon: Sparkles, trend: "up" },
-  { title: "AI Accuracy", value: "97.2%", delta: "+1.8%", icon: BrainCircuit, trend: "up" },
-];
-
-const agents = [
-  { name: "Intent Agent", status: "Healthy", confidence: "98%", latency: "42ms", pulse: "bg-emerald-400" },
-  { name: "Sentiment Agent", status: "Optimizing", confidence: "95%", latency: "58ms", pulse: "bg-cyan-400" },
-  { name: "Customer Profile Agent", status: "Healthy", confidence: "97%", latency: "49ms", pulse: "bg-violet-400" },
-  { name: "Knowledge Agent", status: "Syncing", confidence: "96%", latency: "64ms", pulse: "bg-amber-400" },
-  { name: "Resolution Agent", status: "Healthy", confidence: "99%", latency: "39ms", pulse: "bg-emerald-400" },
-  { name: "Escalation Agent", status: "Standby", confidence: "94%", latency: "71ms", pulse: "bg-slate-400" },
-];
-
-const tickets = [
-  { id: "RT-1024", customer: "Lina Patel", intent: "Refund", priority: "High", status: "Escalating", agent: "Escalation Agent", action: "Review" },
-  { id: "RT-1021", customer: "Marcus Cole", intent: "Billing", priority: "Medium", status: "In Progress", agent: "Resolution Agent", action: "Open" },
-  { id: "RT-1018", customer: "Ava Brooks", intent: "Plan Upgrade", priority: "Low", status: "Resolved", agent: "Knowledge Agent", action: "View" },
-  { id: "RT-1016", customer: "Noah Kim", intent: "Subscription", priority: "High", status: "Pending", agent: "Intent Agent", action: "Assign" },
+const initialStats = [
+  { title: "Total Customers", value: "—", delta: "Loading", icon: Users, trend: "up" },
+  { title: "Open Tickets", value: "—", delta: "Loading", icon: MessageSquareText, trend: "up" },
+  { title: "Resolved Today", value: "—", delta: "Loading", icon: ShieldCheck, trend: "up" },
+  { title: "Pending Escalations", value: "—", delta: "Loading", icon: AlertTriangle, trend: "down" },
+  { title: "Conversations", value: "—", delta: "Loading", icon: Sparkles, trend: "up" },
+  { title: "Avg Processing", value: "—", delta: "Loading", icon: BrainCircuit, trend: "up" },
 ];
 
 const lineOptions = {
@@ -82,20 +67,6 @@ const lineOptions = {
   },
 };
 
-const lineData = {
-  labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-  datasets: [
-    {
-      data: [72, 78, 81, 86, 90, 94, 96],
-      borderColor: "#60a5fa",
-      backgroundColor: "rgba(96,165,250,0.15)",
-      tension: 0.35,
-      fill: true,
-      pointRadius: 0,
-    },
-  ],
-};
-
 const barOptions = {
   responsive: true,
   maintainAspectRatio: false,
@@ -104,28 +75,6 @@ const barOptions = {
     x: { grid: { display: false }, ticks: { color: "#94a3b8" } },
     y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#94a3b8" } },
   },
-};
-
-const barData = {
-  labels: ["Billing", "Refund", "Upgrade", "Support", "Migration"],
-  datasets: [
-    {
-      data: [42, 24, 18, 33, 17],
-      backgroundColor: ["#2563eb", "#7c3aed", "#818cf8", "#38bdf8", "#34d399"],
-      borderRadius: 10,
-    },
-  ],
-};
-
-const doughnutData = {
-  labels: ["Resolved", "Pending", "Escalating"],
-  datasets: [
-    {
-      data: [78, 14, 8],
-      backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
-      borderWidth: 0,
-    },
-  ],
 };
 
 const donutsOptions = {
@@ -161,18 +110,133 @@ function StatCard({ title, value, delta, icon: Icon, trend }) {
 
 function StatusBadge({ status }) {
   const palette = {
-    Resolved: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
-    "In Progress": "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
-    Escalating: "bg-rose-500/15 text-rose-300 border-rose-400/20",
-    Pending: "bg-amber-500/15 text-amber-300 border-amber-400/20",
+    resolved: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
+    closed: "bg-emerald-500/15 text-emerald-300 border-emerald-400/20",
+    pending: "bg-amber-500/15 text-amber-300 border-amber-400/20",
+    open: "bg-cyan-500/15 text-cyan-300 border-cyan-400/20",
   };
 
   return <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${palette[status] || "bg-slate-500/15 text-slate-300 border-slate-400/20"}`}>{status}</span>;
 }
 
 export default function Dashboard() {
-  const currentTime = new Date();
-  const formattedTime = currentTime.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const navigate = useNavigate();
+  const [statsData, setStatsData] = useState(initialStats);
+  const [ticketsData, setTicketsData] = useState([]);
+  const [agentHealth, setAgentHealth] = useState({});
+  const [metricsData, setMetricsData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const currentTime = useMemo(() => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), []);
+
+  useEffect(() => {
+    async function loadDashboard() {
+      setLoading(true);
+      setError("");
+      try {
+        const [customersRes, ticketsRes, conversationsRes, healthRes, metricsRes] = await Promise.all([
+          getCustomers(),
+          getTickets(),
+          getConversations(),
+          getAIHealth().catch(() => ({ data: { data: {} } })),
+          getAIMetrics().catch(() => ({ data: { data: {} } })),
+        ]);
+
+        const customers = customersRes?.data?.data || [];
+        const tickets = ticketsRes?.data?.data || [];
+        const conversations = conversationsRes?.data?.data || [];
+        const health = healthRes?.data?.data || {};
+        const metrics = metricsRes?.data?.data || {};
+
+        const openTickets = tickets.filter((ticket) => !(ticket.status === "resolved" || ticket.status === "closed")).length;
+        const resolvedTickets = tickets.filter((ticket) => ticket.status === "resolved" || ticket.status === "closed").length;
+        const pendingEscalations = tickets.filter((ticket) => ticket.priority === "urgent" || ticket.status === "pending").length;
+
+        setStatsData([
+          { title: "Total Customers", value: String(customers.length), delta: `${customers.length > 0 ? "+" : ""}${customers.length} live`, icon: Users, trend: "up" },
+          { title: "Open Tickets", value: String(openTickets), delta: `${openTickets} active`, icon: MessageSquareText, trend: "up" },
+          { title: "Resolved Today", value: String(resolvedTickets), delta: `${resolvedTickets} closed`, icon: ShieldCheck, trend: "up" },
+          { title: "Pending Escalations", value: String(pendingEscalations), delta: pendingEscalations > 0 ? "Needs review" : "Stable", icon: AlertTriangle, trend: pendingEscalations > 0 ? "down" : "up" },
+          { title: "Conversations", value: String(conversations.length), delta: `${conversations.length} recent`, icon: Sparkles, trend: "up" },
+          { title: "Avg Processing", value: `${metrics.averageProcessingTime || 0}ms`, delta: `${metrics.successfulResolutions || 0} successful`, icon: BrainCircuit, trend: "up" },
+        ]);
+
+        setTicketsData(
+          tickets.slice(0, 4).map((ticket) => ({
+            id: ticket.ticketId || `TK-${ticket._id?.slice(0, 4)}`,
+            customer: ticket.customer?.name || ticket.customer || "Unknown",
+            intent: ticket.category || "Support",
+            priority: ticket.priority || "medium",
+            status: ticket.status || "open",
+            agent: ticket.assignedAgent || "AI Agent",
+            action: "Open",
+          }))
+        );
+
+        setAgentHealth(health);
+        setMetricsData(metrics);
+      } catch (err) {
+        const message = err?.response?.status === 401 ? "Please sign in again." : "Unable to load dashboard data. The backend may be offline.";
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadDashboard();
+  }, []);
+
+  const lineData = useMemo(() => ({
+    labels: ["Customers", "Tickets", "Conversations"],
+    datasets: [{
+      data: [statsData[0].value === "—" ? 0 : Number(statsData[0].value), statsData[1].value === "—" ? 0 : Number(statsData[1].value), statsData[4].value === "—" ? 0 : Number(statsData[4].value)],
+      borderColor: "#60a5fa",
+      backgroundColor: "rgba(96,165,250,0.15)",
+      tension: 0.35,
+      fill: true,
+      pointRadius: 0,
+    }],
+  }), [statsData]);
+
+  const barData = useMemo(() => ({
+    labels: ["Billing", "Technical", "Support", "Retention"],
+    datasets: [{
+      data: [
+        ticketsData.filter((ticket) => ticket.intent === "billing").length,
+        ticketsData.filter((ticket) => ticket.intent === "technical").length,
+        ticketsData.filter((ticket) => ticket.intent === "support").length,
+        ticketsData.filter((ticket) => ticket.intent === "retention").length,
+      ],
+      backgroundColor: ["#2563eb", "#7c3aed", "#818cf8", "#38bdf8"],
+      borderRadius: 10,
+    }],
+  }), [ticketsData]);
+
+  const doughnutData = useMemo(() => ({
+    labels: ["Resolved", "Pending", "Escalating"],
+    datasets: [{
+      data: [
+        ticketsData.filter((ticket) => ticket.status === "resolved" || ticket.status === "closed").length,
+        ticketsData.filter((ticket) => ticket.status === "pending").length,
+        ticketsData.filter((ticket) => ticket.priority === "urgent").length,
+      ],
+      backgroundColor: ["#22c55e", "#f59e0b", "#ef4444"],
+      borderWidth: 0,
+    }],
+  }), [ticketsData]);
+
+  const agents = Object.entries(agentHealth).map(([name, status]) => ({
+    name,
+    status,
+    confidence: "Live",
+    latency: "—",
+    pulse: status === "Healthy" ? "bg-emerald-400" : "bg-amber-400",
+  }));
+
+  function handleLogout() {
+    clearAuthToken();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
@@ -208,11 +272,11 @@ export default function Dashboard() {
                 <Bot className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Laxmikanth</p>
+                <p className="text-sm font-semibold text-white">Ops</p>
                 <p className="text-xs text-slate-400">Operations Lead</p>
               </div>
             </div>
-            <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-900 hover:text-white">
+            <button onClick={handleLogout} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-900 hover:text-white">
               <LogOut className="h-4 w-4" />
               Logout
             </button>
@@ -231,7 +295,7 @@ export default function Dashboard() {
                 <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">
                   <div className="flex items-center gap-2">
                     <Clock3 className="h-4 w-4 text-blue-300" />
-                    {formattedTime}
+                    {currentTime}
                   </div>
                 </div>
                 <button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white">
@@ -241,9 +305,9 @@ export default function Dashboard() {
                   <Moon className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">L</div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">O</div>
                   <div>
-                    <p className="text-sm font-medium text-white">Laxmikanth</p>
+                    <p className="text-sm font-medium text-white">Operations</p>
                     <p className="text-xs text-slate-400">Admin</p>
                   </div>
                 </div>
@@ -256,20 +320,22 @@ export default function Dashboard() {
               <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                 <div>
                   <p className="text-sm uppercase tracking-[0.3em] text-blue-300">Operations Overview</p>
-                  <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">Welcome back, Laxmikanth</h1>
-                  <p className="mt-3 max-w-2xl text-base leading-7 text-slate-400">Your AI agents are actively resolving customer issues with unmatched speed and precision.</p>
+                  <h1 className="mt-3 text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">Welcome back</h1>
+                  <p className="mt-3 max-w-2xl text-base leading-7 text-slate-400">Your AI agents are resolving customer issues using the live backend data.</p>
                 </div>
                 <div className="rounded-[1.5rem] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200">
                   <div className="flex items-center gap-2">
                     <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-                    24 AI missions in motion
+                    {metricsData ? `${metricsData.requestsProcessed || 0} requests processed` : "Connecting..."}
                   </div>
                 </div>
               </div>
             </motion.section>
 
+            {error ? <div className="rounded-[1.25rem] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div> : null}
+
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {stats.map((stat, index) => (
+              {statsData.map((stat, index) => (
                 <motion.div key={stat.title} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 * index, duration: 0.35 }} whileHover={{ y: -6, scale: 1.01 }}>
                   <StatCard {...stat} />
                 </motion.div>
@@ -283,7 +349,7 @@ export default function Dashboard() {
                     <p className="text-sm text-slate-400">AI Agent Status</p>
                     <h2 className="mt-1 text-xl font-semibold text-white">Live agents</h2>
                   </div>
-                  <div className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-sm text-blue-200">6 online</div>
+                  <div className="rounded-full border border-blue-400/20 bg-blue-500/10 px-3 py-1 text-sm text-blue-200">{agents.length} online</div>
                 </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   {agents.map((agent) => (
@@ -350,13 +416,13 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/10 bg-slate-900/50 text-slate-200">
-                      {tickets.map((ticket) => (
+                      {ticketsData.map((ticket) => (
                         <tr key={ticket.id} className="transition hover:bg-white/5">
                           <td className="px-4 py-3 font-medium text-white">{ticket.id}</td>
                           <td className="px-4 py-3">{ticket.customer}</td>
                           <td className="px-4 py-3">{ticket.intent}</td>
                           <td className="px-4 py-3">
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ticket.priority === "High" ? "bg-rose-500/15 text-rose-300" : ticket.priority === "Medium" ? "bg-amber-500/15 text-amber-300" : "bg-emerald-500/15 text-emerald-300"}`}>{ticket.priority}</span>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${ticket.priority === "high" || ticket.priority === "urgent" ? "bg-rose-500/15 text-rose-300" : ticket.priority === "medium" ? "bg-amber-500/15 text-amber-300" : "bg-emerald-500/15 text-emerald-300"}`}>{ticket.priority}</span>
                           </td>
                           <td className="px-4 py-3"><StatusBadge status={ticket.status} /></td>
                           <td className="px-4 py-3">{ticket.agent}</td>
@@ -404,8 +470,8 @@ export default function Dashboard() {
                       <DoughnutChart data={doughnutData} options={donutsOptions} />
                       <div className="absolute inset-0 flex items-center justify-center text-center">
                         <div>
-                          <p className="text-3xl font-semibold text-white">92%</p>
-                          <p className="text-sm text-slate-400">Stable</p>
+                          <p className="text-3xl font-semibold text-white">{metricsData ? `${metricsData.escalations || 0}` : "0"}</p>
+                          <p className="text-sm text-slate-400">Escalations</p>
                         </div>
                       </div>
                     </div>

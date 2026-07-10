@@ -3,9 +3,14 @@ import Hero from "../components/landing/Hero";
 import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
 import Workspace from "../pages/Workspace";
+import { getStoredToken } from "../services/api";
 
 function Home() {
   return <Hero />;
+}
+
+function ProtectedRoute({ children }) {
+  return getStoredToken() ? children : <Navigate to="/login" replace />;
 }
 
 function NotFound() {
@@ -26,8 +31,8 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/workspace" element={<Workspace />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/workspace" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
         <Route path="/home" element={<Navigate to="/" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

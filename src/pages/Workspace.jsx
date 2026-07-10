@@ -21,7 +21,9 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { clearAuthToken, getAILogs, getAIMetrics, getAIHealth, getCustomers, processAI } from "../services/api";
 
 const sidebarItems = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -32,58 +34,13 @@ const sidebarItems = [
   { label: "Settings", icon: Settings },
 ];
 
-const pipelineSteps = [
-  { title: "Customer Query", status: "Received", confidence: "98%", time: "0.2s" },
-  { title: "Intent Agent", status: "Matched", confidence: "97%", time: "0.4s" },
-  { title: "Sentiment Agent", status: "Calm", confidence: "96%", time: "0.3s" },
-  { title: "Customer Profile Agent", status: "Linked", confidence: "95%", time: "0.5s" },
-  { title: "Knowledge Agent", status: "Resolved", confidence: "99%", time: "0.6s" },
-  { title: "Resolution Agent", status: "Drafted", confidence: "98%", time: "0.4s" },
-  { title: "Escalation Agent", status: "Standby", confidence: "94%", time: "0.3s" },
-  { title: "Final Response", status: "Ready", confidence: "97%", time: "0.2s" },
-];
-
-const chatMessages = [
+const initialChatMessages = [
   {
     role: "customer",
-    text: "Hi, I was charged twice for my Pro plan this month and I need this resolved quickly.",
-    time: "09:24",
-    status: "Delivered",
+    text: "Hello, I need help with my account.",
+    time: "Now",
+    status: "Awaiting response",
   },
-  {
-    role: "ai",
-    text: "I’m reviewing the billing event and the subscription history for your account now.",
-    time: "09:25",
-    status: "Seen",
-  },
-  {
-    role: "customer",
-    text: "Please make sure the extra charge is removed and confirm the next billing date.",
-    time: "09:26",
-    status: "Delivered",
-  },
-  {
-    role: "ai",
-    text: "I’ve identified the duplicate invoice and I’m preparing a resolution with the refund summary.",
-    time: "09:27",
-    status: "Responding",
-  },
-];
-
-const reasoningItems = [
-  { label: "Detected Intent", value: "Duplicate charge / refund request" },
-  { label: "Detected Sentiment", value: "Concerned, urgent" },
-  { label: "Customer History", value: "Pro plan since 2023 • 3 prior billing cases" },
-  { label: "Knowledge Sources", value: "Billing policy • Refund SLA • Plan terms" },
-  { label: "Confidence Score", value: "97.2%" },
-  { label: "Suggested Resolution", value: "Issue refund for duplicate charge and extend license" },
-  { label: "Escalation Decision", value: "No escalation needed; auto-resolution ready" },
-];
-
-const logs = [
-  { title: "Intent Agent", detail: "Matched billing intent with 97% confidence", time: "Just now" },
-  { title: "Knowledge Agent", detail: "Pulled refund policy and plan entitlement data", time: "1 min ago" },
-  { title: "Resolution Agent", detail: "Drafted customer-friendly response and refund note", time: "2 min ago" },
 ];
 
 function TypingIndicator() {
@@ -105,8 +62,140 @@ function TypingIndicator() {
 }
 
 export default function Workspace() {
+  const navigate = useNavigate();
   const [draft, setDraft] = useState("");
+  const [chatMessages, setChatMessages] = useState(initialChatMessages);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState("");
+  const [aiResult, setAiResult] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [healthData, setHealthData] = useState({});
+  const [metricsData, setMetricsData] = useState(null);
+  const [logsData, setLogsData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activePipelineIndex, setActivePipelineIndex] = useState(0);
   const currentTime = useMemo(() => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), []);
+
+  const pipelineSteps = [
+    { title: "Intent Agent", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.intent?.confidence ? `${aiResult.intent.confidence}` : "—", time: isProcessing ? "Now" : aiResult ? `${aiResult.processingTime || 0}ms` : "—" },
+    { title: "Sentiment Agent", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.sentiment?.confidence ? `${aiResult.sentiment.confidence}` : "—", time: "—" },
+    { title: "Customer Profile", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.customer ? "Loaded" : "—", time: "—" },
+    { title: "Knowledge", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.knowledge ? "Loaded" : "—", time: "—" },
+    { title: "Resolution", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.resolution ? "Ready" : "—", time: "—" },
+    { title: "Escalation", status: isProcessing ? "Running" : aiResult ? "Completed" : "Waiting", confidence: aiResult?.escalation ? aiResult.escalation.priority || "—" : "—", time: "—" },
+  ];
+
+  useEffect(() => {
+    async function loadWorkspace() {
+      setLoading(true);
+      setError("");
+      try {
+        const [customersRes, healthRes, metricsRes, logsRes] = await Promise.all([
+          getCustomers().catch(() => ({ data: { data: [] } })),
+          getAIHealth().catch(() => ({ data: { data: {} } })),
+          getAIMetrics().catch(() => ({ data: { data: {} } })),
+          getAILogs().catch(() => ({ data: { data: [] } })),
+        ]);
+
+        const customerList = customersRes?.data?.data || [];
+        setCustomers(customerList);
+        if (customerList[0]?._id) {
+          setSelectedCustomerId(customerList[0]._id);
+        }
+        setHealthData(healthRes?.data?.data || {});
+        setMetricsData(metricsRes?.data?.data || {});
+        setLogsData(logsRes?.data?.data || []);
+      } catch (err) {
+        setError("Unable to load workspace data.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadWorkspace();
+  }, []);
+
+  useEffect(() => {
+    if (!isProcessing) {
+      return undefined;
+    }
+
+    const interval = setInterval(() => {
+      setActivePipelineIndex((value) => (value + 1) % pipelineSteps.length);
+    }, 700);
+
+    return () => clearInterval(interval);
+  }, [isProcessing, pipelineSteps.length]);
+
+  const reasoningItems = [
+    { label: "Detected Intent", value: aiResult?.intent?.intent ? `${aiResult.intent.intent} (${aiResult.intent.confidence})` : "Awaiting analysis" },
+    { label: "Detected Sentiment", value: aiResult?.sentiment?.sentiment ? `${aiResult.sentiment.sentiment} (${aiResult.sentiment.emotion})` : "Awaiting analysis" },
+    { label: "Customer History", value: aiResult?.customer?.previousTickets?.length ? `${aiResult.customer.previousTickets.length} prior tickets loaded` : "No history loaded yet" },
+    { label: "Knowledge Sources", value: aiResult?.knowledge?.relevantPolicies?.length ? aiResult.knowledge.relevantPolicies[0] : "Awaiting knowledge retrieval" },
+    { label: "Confidence Score", value: aiResult?.confidence ? `${aiResult.confidence}` : "Pending" },
+    { label: "Suggested Resolution", value: aiResult?.resolution?.response || "Awaiting response generation" },
+    { label: "Escalation Decision", value: aiResult?.escalation?.escalate ? `Escalate: ${aiResult.escalation.reason}` : aiResult?.escalation?.reason || "Awaiting decision" },
+  ];
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (!draft.trim()) {
+      return;
+    }
+
+    setError("");
+    setIsProcessing(true);
+    setAiResult(null);
+    setActivePipelineIndex(0);
+
+    const userMessage = {
+      role: "customer",
+      text: draft,
+      time: "Just now",
+      status: "Sent",
+    };
+    setChatMessages((current) => [...current, userMessage]);
+
+    try {
+      const response = await processAI({ customerId: selectedCustomerId || customers[0]?._id, message: draft });
+      const data = response?.data?.data;
+      setAiResult(data);
+      setChatMessages((current) => [
+        ...current,
+        {
+          role: "ai",
+          text: data?.resolution?.response || "The workflow completed without a response.",
+          time: "Just now",
+          status: "Responded",
+        },
+      ]);
+      const [healthRes, metricsRes, logsRes] = await Promise.all([getAIHealth(), getAIMetrics(), getAILogs()]);
+      setHealthData(healthRes?.data?.data || {});
+      setMetricsData(metricsRes?.data?.data || {});
+      setLogsData(logsRes?.data?.data || []);
+    } catch (err) {
+      const message = err?.response?.status === 401 ? "Please sign in again." : "The AI workflow could not be completed. Please verify the backend is running.";
+      setError(message);
+      setChatMessages((current) => [
+        ...current,
+        {
+          role: "ai",
+          text: message,
+          time: "Just now",
+          status: "Error",
+        },
+      ]);
+    } finally {
+      setIsProcessing(false);
+      setDraft("");
+    }
+  }
+
+  function handleLogout() {
+    clearAuthToken();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
@@ -142,11 +231,11 @@ export default function Workspace() {
                 <Bot className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Laxmikanth</p>
+                <p className="text-sm font-semibold text-white">Ops</p>
                 <p className="text-xs text-slate-400">Support Lead</p>
               </div>
             </div>
-            <button className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-900 hover:text-white">
+            <button onClick={handleLogout} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-900 hover:text-white">
               <LogOut className="h-4 w-4" />
               Logout
             </button>
@@ -175,9 +264,9 @@ export default function Workspace() {
                   <Moon className="h-4 w-4" />
                 </button>
                 <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">L</div>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">O</div>
                   <div>
-                    <p className="text-sm font-medium text-white">Laxmikanth</p>
+                    <p className="text-sm font-medium text-white">Operations</p>
                     <p className="text-xs text-slate-400">Supervisor</p>
                   </div>
                 </div>
@@ -191,8 +280,8 @@ export default function Workspace() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-blue-300">Customer Resolution Console</p>
-                    <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">Ticket #RT-1042 • Billing dispute</h1>
-                    <p className="mt-2 text-sm text-slate-400">ResolveAI is orchestrating the billing recovery flow with proactive context and policy-aware suggestions.</p>
+                    <h1 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-white">Live workflow</h1>
+                    <p className="mt-2 text-sm text-slate-400">The AI agents are processing customer intent and generating a customer-ready response.</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200">
                     <div className="flex items-center gap-2">
@@ -206,13 +295,12 @@ export default function Workspace() {
               <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06, duration: 0.45 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                   {[
-                    { label: "Ticket ID", value: "RT-1042" },
-                    { label: "Customer Name", value: "Mina Alvarez" },
-                    { label: "Customer Tier", value: "Enterprise" },
-                    { label: "Issue Category", value: "Billing / Refund" },
-                    { label: "Priority", value: "High" },
-                    { label: "Current Status", value: "Awaiting Approval" },
-                    { label: "Assigned AI Agent", value: "Resolution Agent" },
+                    { label: "Customer", value: selectedCustomerId ? selectedCustomerId.slice(0, 8) : "—" },
+                    { label: "Status", value: isProcessing ? "Processing" : aiResult ? "Completed" : "Idle" },
+                    { label: "Confidence", value: aiResult?.confidence ? `${aiResult.confidence}` : "—" },
+                    { label: "Processing Time", value: aiResult?.processingTime ? `${aiResult.processingTime}ms` : "—" },
+                    { label: "Escalation", value: aiResult?.escalation?.escalate ? "Yes" : "No" },
+                    { label: "Active Agents", value: `${pipelineSteps.filter((step) => step.status === "Running").length || 0}` },
                   ].map((item) => (
                     <div key={item.label} className="rounded-[1.25rem] border border-white/10 bg-slate-950/60 p-3">
                       <p className="text-xs uppercase tracking-[0.24em] text-slate-400">{item.label}</p>
@@ -238,7 +326,7 @@ export default function Workspace() {
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.16 + index * 0.05, duration: 0.35 }}
-                      className="rounded-[1.25rem] border border-white/10 bg-slate-950/70 p-3 text-center"
+                      className={`rounded-[1.25rem] border p-3 text-center ${index === activePipelineIndex && isProcessing ? "border-blue-400/50 bg-blue-500/10" : "border-white/10 bg-slate-950/70"}`}
                     >
                       <div className="flex items-center justify-center gap-2 text-sm font-medium text-white">
                         <span className="text-blue-300">{step.title}</span>
@@ -274,24 +362,26 @@ export default function Workspace() {
                       </div>
                     </motion.div>
                   ))}
-                  <TypingIndicator />
+                  {isProcessing ? <TypingIndicator /> : null}
                 </div>
 
-                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                {error ? <div className="mt-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-300">{error}</div> : null}
+
+                <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row">
                   <div className="flex flex-1 items-center gap-2 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-3">
                     <Paperclip className="h-4 w-4 text-slate-400" />
-                    <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Send a reply to the customer" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" />
+                    <input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="Send a message to the multi-agent workflow" className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-500" />
                   </div>
                   <div className="flex gap-2">
-                    <button className="rounded-2xl border border-white/10 bg-white/5 p-3 text-slate-300 transition hover:bg-white/10 hover:text-white">
+                    <button type="button" className="rounded-2xl border border-white/10 bg-white/5 p-3 text-slate-300 transition hover:bg-white/10 hover:text-white">
                       <Mic className="h-4 w-4" />
                     </button>
-                    <button className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(37,99,235,0.22)] transition hover:brightness-110">
-                      Send
+                    <button type="submit" disabled={isProcessing || !draft.trim()} className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_40px_rgba(37,99,235,0.22)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70">
+                      {isProcessing ? "Processing" : "Send"}
                       <ArrowUp className="h-4 w-4" />
                     </button>
                   </div>
-                </div>
+                </form>
               </motion.section>
             </div>
 
@@ -319,17 +409,17 @@ export default function Workspace() {
               <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.14, duration: 0.45 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-slate-400">Quick Actions</p>
-                    <h2 className="mt-1 text-xl font-semibold text-white">Next steps</h2>
+                    <p className="text-sm text-slate-400">Agent Health</p>
+                    <h2 className="mt-1 text-xl font-semibold text-white">System status</h2>
                   </div>
                   <Zap className="h-4 w-4 text-amber-300" />
                 </div>
-                <div className="mt-5 grid gap-2">
-                  {['Escalate', 'Regenerate', 'Approve Response', 'Send to Customer', 'Close Ticket'].map((action) => (
-                    <button key={action} className="flex items-center justify-between rounded-[1.1rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-200 transition hover:border-blue-400/30 hover:bg-white/10">
-                      {action}
-                      <ChevronRight className="h-4 w-4 text-slate-400" />
-                    </button>
+                <div className="mt-5 space-y-3">
+                  {Object.entries(healthData).map(([name, status]) => (
+                    <div key={name} className="flex items-center justify-between rounded-[1.1rem] border border-white/10 bg-slate-950/70 px-3 py-3 text-sm text-slate-200">
+                      <span>{name}</span>
+                      <span className="text-emerald-300">{status}</span>
+                    </div>
                   ))}
                 </div>
               </motion.section>
@@ -343,15 +433,29 @@ export default function Workspace() {
                   <Activity className="h-4 w-4 text-cyan-300" />
                 </div>
                 <div className="mt-5 space-y-3">
-                  {logs.map((log) => (
-                    <div key={log.title} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3">
+                  {logsData.slice(0, 4).map((log, index) => (
+                    <div key={`${log.workflowId || index}-${index}`} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-white">{log.title}</p>
-                        <span className="text-xs text-slate-400">{log.time}</span>
+                        <p className="text-sm font-semibold text-white">{log.workflowId || "Workflow"}</p>
+                        <span className="text-xs text-slate-400">{log.totalDurationMs ? `${log.totalDurationMs}ms` : "Live"}</span>
                       </div>
-                      <p className="mt-2 text-sm text-slate-400">{log.detail}</p>
+                      <p className="mt-2 text-sm text-slate-400">{log.results?.resolution?.response || log.message || "Workflow log available"}</p>
                     </div>
                   ))}
+                </div>
+                <div className="mt-4 rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span>Average Processing Time</span>
+                    <span className="text-cyan-300">{metricsData?.averageProcessingTime || 0}ms</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span>Successful Requests</span>
+                    <span className="text-emerald-300">{metricsData?.successfulResolutions || 0}</span>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between">
+                    <span>Escalations</span>
+                    <span className="text-amber-300">{metricsData?.escalations || 0}</span>
+                  </div>
                 </div>
               </motion.section>
             </div>
