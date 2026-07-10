@@ -1,0 +1,43 @@
+{
+  "billing": {
+    "policies": [
+      "Refunds are available for charges made in the last 14 days.",
+      "Subscription downgrades can be applied at the next billing cycle.",
+      "Invoices can be re-sent from the billing portal."
+    ],
+    "actions": [
+      "Confirm the billing issue and review the invoice.",
+      "Offer a refund or billing adjustment if policy allows."
+    ]
+  },
+  "technical": {
+    "policies": [
+      "Account access issues should be verified with the latest email confirmation.",
+      "High-priority incidents should be escalated if the issue blocks access for more than 30 minutes."
+    ],
+    "actions": [
+      "Guide the customer through a password reset or account recovery step.",
+      "Escalate to engineering if the issue persists after basic troubleshooting."
+    ]
+  },
+  "account": {
+    "policies": [
+      "Customers can update profile details from the account settings page.",
+      "Suspicious account activity should be reviewed immediately."
+    ],
+    "actions": [
+      "Verify identity before changing account information.",
+      "Review recent activity for signs of suspicious access."
+    ]
+  },
+  "subscription": {
+    "policies": [
+      "Plan changes take effect at the next billing cycle unless otherwise stated.",
+      "Enterprise plan features require admin approval."
+    ],
+    "actions": [
+      "Explain the current plan and available upgrade paths.",
+      "Share the renewal timeline and billing impact."
+    ]
+  }
+}

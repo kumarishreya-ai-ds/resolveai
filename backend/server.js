@@ -8,6 +8,7 @@ import authRoutes from "./routes/authRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
 import ticketRoutes from "./routes/ticketRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 import Customer from "./models/Customer.js";
 import Ticket from "./models/Ticket.js";
 import Conversation from "./models/Conversation.js";
@@ -35,6 +36,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/tickets", ticketRoutes);
 app.use("/api/conversations", conversationRoutes);
+app.use("/api/ai", aiRoutes);
 
 const seedData = async () => {
   try {
