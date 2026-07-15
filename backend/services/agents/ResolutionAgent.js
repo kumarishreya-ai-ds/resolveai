@@ -4,9 +4,7 @@ const openaiFallback = (context) => {
   const intent = context?.intent?.intent || "support request";
   const customerName = context?.customer?.customer?.name || "there";
   const tone = context?.sentiment?.sentiment || "neutral";
-  return {
-    response: `Hi ${customerName}, thanks for reaching out. We’ve reviewed your ${intent} and are taking the next best action. We understand this feels ${tone}, and we’re actively working to resolve it for you.`,
-  };
+  return { response: `Hi ${customerName}, thanks for reaching out. We reviewed your ${intent} and are handling it with the company policy and account context available. We understand this feels ${tone}, and we’re actively working to resolve it for you.` };
 };
 
 const callOpenAI = async (context) => {
@@ -15,10 +13,7 @@ const callOpenAI = async (context) => {
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [
@@ -29,10 +24,7 @@ const callOpenAI = async (context) => {
     }),
   });
 
-  if (!response.ok) {
-    throw new Error(`OpenAI request failed: ${response.status}`);
-  }
-
+  if (!response.ok) throw new Error(`OpenAI request failed: ${response.status}`);
   const data = await response.json();
   return data?.choices?.[0]?.message?.content?.trim() || null;
 };
@@ -40,13 +32,8 @@ const callOpenAI = async (context) => {
 class ResolutionAgent {
   async run({ intent, sentiment, customer, knowledge, message = "" }) {
     const start = Date.now();
-    const context = {
-      intent,
-      sentiment,
-      customer,
-      knowledge,
-      message,
-    };
+    const retrievedContext = knowledge?.matchedChunks?.length ? knowledge.matchedChunks.map((chunk) => ({ sourceFile: chunk.sourceFile, page: chunk.page, text: chunk.snippet, similarity: chunk.similarity })) : [];
+    const context = { intent, sentiment, customer, knowledge, message, retrievedContext };
 
     let responseText = null;
     try {
@@ -57,7 +44,7 @@ class ResolutionAgent {
 
     if (!responseText) {
       const result = await callGemini(
-        `You are a customer support assistant. Write a concise, professional response for a customer. Use the customer's plan and tier when helpful. Context: intent=${intent?.intent || "support"}, sentiment=${sentiment?.sentiment || "neutral"}, customer=${customer?.customer?.name || "customer"}, plan=${customer?.plan || "basic"}, tier=${customer?.tier || "standard"}, knowledge=${JSON.stringify(knowledge || {})}. Return ONLY valid JSON with key: response.`,
+        `You are a customer support assistant. Write a concise, professional response for a customer using retrieved company knowledge and customer context. Context: ${JSON.stringify(context)}. Return ONLY valid JSON with key: response.`,
         () => openaiFallback(context)
       );
       responseText = result?.response || openaiFallback(context).response;
@@ -66,10 +53,7 @@ class ResolutionAgent {
     return {
       name: "ResolutionAgent",
       durationMs: Date.now() - start,
-      output: {
-        response: responseText,
-        source: process.env.OPENAI_API_KEY ? "openai" : "fallback",
-      },
+      output: { response: responseText, source: process.env.OPENAI_API_KEY ? "openai" : "fallback", retrievedContext },
     };
   }
 }

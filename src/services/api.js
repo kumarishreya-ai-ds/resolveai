@@ -40,5 +40,10 @@ export const getAIState = (workflowId) => workflowId ? api.get(`/api/ai/state/${
 export const getAIMonitor = () => api.get("/api/ai/monitor");
 export const getAnalytics = () => api.get("/api/analytics");
 export const getLogs = () => api.get("/api/logs");
+export const getKnowledgeDocuments = () => api.get("/api/knowledge");
+export const uploadKnowledgeDocument = (formData) => api.post("/api/knowledge/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+export const deleteKnowledgeDocument = (id) => api.delete(`/api/knowledge/${id}`);
+export const retrieveKnowledge = (query) => api.post("/api/knowledge/retrieve", { query });
+export const getKnowledgeMonitor = () => api.get("/api/knowledge/monitor");
 
 export default api;

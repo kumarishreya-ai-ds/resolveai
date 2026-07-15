@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
@@ -10,9 +11,12 @@ import ticketRoutes from "./routes/ticketRoutes.js";
 import conversationRoutes from "./routes/conversationRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import knowledgeRoutes from "./routes/knowledgeRoutes.js";
 import Customer from "./models/Customer.js";
 import Ticket from "./models/Ticket.js";
 import Conversation from "./models/Conversation.js";
+import { ingestDocumentBuffer } from "./services/knowledgeRag.js";
+import { getKnowledgeStore } from "./services/knowledgeStore.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,6 +34,24 @@ app.use("/api/tickets", ticketRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/knowledge", knowledgeRoutes);
+
+const seedKnowledgeBase = async () => {
+  const store = getKnowledgeStore();
+  if (store.documents.length > 0) return;
+
+  const seedFiles = [
+    { name: "RefundPolicy.md", file: path.join(__dirname, "data", "refund-policy.md") },
+    { name: "ShippingPolicy.md", file: path.join(__dirname, "data", "shipping-policy.md") },
+    { name: "MembershipPolicy.md", file: path.join(__dirname, "data", "membership-policy.md") },
+    { name: "CancellationPolicy.md", file: path.join(__dirname, "data", "cancellation-policy.md") },
+  ];
+
+  for (const item of seedFiles) {
+    const buffer = fs.readFileSync(item.file);
+    await ingestDocumentBuffer({ originalName: item.name, mimeType: "text/markdown", buffer, uploadedBy: "system" });
+  }
+};
 
 const seedData = async () => {
   try {
@@ -53,6 +75,7 @@ const seedData = async () => {
         { ticket: tickets[1]._id, sender: "customer", message: "The password reset email did not arrive." },
       ]);
     }
+    await seedKnowledgeBase();
   } catch (error) {
     console.error("Seed data error:", error.message);
   }

@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Activity, ArrowUp, Bell, Bot, BrainCircuit, CheckCircle2, ChevronRight, Clock3, LayoutDashboard, LogOut, MessageSquareText, Mic, Moon, Search, Settings, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
+import { Activity, ArrowUp, Bell, Bot, BrainCircuit, CheckCircle2, ChevronDown, ChevronRight, Clock3, LayoutDashboard, LogOut, MessageSquareText, Mic, Moon, Paperclip, Search, Settings, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearAuthToken, createTicket, getCustomers, getLogs, getTickets, processAI, updateTicket } from "../services/api";
@@ -52,12 +52,27 @@ export default function Workspace() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [aiResult, setAiResult] = useState(null);
+  const [explanationOpen, setExplanationOpen] = useState(true);
+  const [reviewOpen, setReviewOpen] = useState(true);
+  const [humanReviewAction, setHumanReviewAction] = useState("approve");
+  const [humanReviewReason, setHumanReviewReason] = useState("");
+  const [humanReviewEdit, setHumanReviewEdit] = useState("");
+  const [executiveSummary, setExecutiveSummary] = useState(null);
+  const [demoRunning, setDemoRunning] = useState(false);
+  const [demoScenario, setDemoScenario] = useState("");
+  const [demoTimelineStep, setDemoTimelineStep] = useState(0);
+  const [demoReport, setDemoReport] = useState(null);
+  const [demoStartAt, setDemoStartAt] = useState(null);
   const logTimerRef = useRef(null);
   const logPollRef = useRef(null);
   const currentTime = useMemo(() => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), []);
 
   const selectedTicket = tickets.find((ticket) => ticket._id === selectedTicketId) || tickets[0];
   const selectedCustomerId = selectedTicket?.customer?._id || selectedTicket?.customer || customers[0]?._id;
+  const knowledgeChunks = aiResult?.knowledge?.matchedChunks || [];
+  const demoSteps = ["Customer ticket", "Intent", "Sentiment", "Customer Profile", "Knowledge Retrieval", "Resolution", "Human Review", "Executive Summary"];
+  const knowledgeConfidence = Number(aiResult?.knowledge?.confidence ?? (knowledgeChunks[0]?.confidence || 0));
+  const reviewRequired = Boolean(aiResult?.humanReviewRequired || selectedTicket?.humanReview?.required);
 
   const loadWorkspace = async () => {
     setLoading(true);
@@ -111,15 +126,58 @@ export default function Workspace() {
 
   const handleDemo = (message) => setDraft(message);
 
+  const resetDemo = () => {
+    setDraft("");
+    setAiResult(null);
+    setExecutiveSummary(null);
+    setDemoReport(null);
+    setDemoRunning(false);
+    setDemoScenario("");
+    setDemoTimelineStep(0);
+    setDemoStartAt(null);
+    setPipeline(pipelineTemplate.map((step) => ({ ...step, status: "Waiting", output: "" })));
+    setChatMessages([]);
+    setLiveLogs([]);
+    setError("");
+  };
+
+  const runLiveDemo = async () => {
+    if (demoRunning) return;
+    const scenarios = [
+      { label: "Payment Failed", message: "My payment was deducted but my order has not been confirmed." },
+      { label: "Refund Request", message: "I need a refund for the wrong amount charged." },
+      { label: "Order Delayed", message: "My order has been delayed for days." },
+      { label: "Account Locked", message: "My account is locked and I cannot log in." },
+      { label: "Wrong Product Delivered", message: "I received the wrong product delivery." },
+      { label: "Subscription Cancellation", message: "I want to cancel my subscription immediately." },
+    ];
+    const picked = scenarios[Math.floor(Math.random() * scenarios.length)];
+    setDemoRunning(true);
+    setDemoScenario(picked.label);
+    setDemoTimelineStep(0);
+    setDemoReport(null);
+    setDemoStartAt(Date.now());
+    setDraft(picked.message);
+    try {
+      await handleSubmit({ preventDefault: () => {} }, { message: picked.message, scenarioLabel: picked.label, demoMode: true });
+      setDemoTimelineStep(demoSteps.length - 1);
+      setDemoReport({ status: "Demo Completed Successfully", executionTimeMs: Math.max(1, Date.now() - (demoStartAt || Date.now())) });
+    } finally {
+      setDemoRunning(false);
+    }
+  };
+
   const handleTicketSelect = (ticketId) => setSelectedTicketId(ticketId);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (!draft.trim()) return;
+  const handleSubmit = async (event, options = {}) => {
+    event?.preventDefault?.();
+    const message = options.message || draft;
+    if (!message.trim()) return;
 
     setError("");
     setIsProcessing(true);
     setAiResult(null);
+    setExecutiveSummary(null);
     setPipeline(pipelineTemplate.map((step) => ({ ...step, status: "Waiting", output: "" })));
     appendActivity(`${formatTime()} Ticket Received`);
 
@@ -127,45 +185,63 @@ export default function Workspace() {
     let ticketRecord = null;
 
     try {
-      const scenarioLabel = draft.toLowerCase().includes("refund") ? "Refund Request" : draft.toLowerCase().includes("delay") ? "Order Delayed" : draft.toLowerCase().includes("locked") ? "Account Locked" : draft.toLowerCase().includes("cancel") ? "Subscription Cancellation" : draft.toLowerCase().includes("wrong") ? "Wrong Product Delivered" : "Payment Failed";
+      const scenarioLabel = options.scenarioLabel || (message.toLowerCase().includes("refund") ? "Refund Request" : message.toLowerCase().includes("delay") ? "Order Delayed" : message.toLowerCase().includes("locked") ? "Account Locked" : message.toLowerCase().includes("cancel") ? "Subscription Cancellation" : message.toLowerCase().includes("wrong") ? "Wrong Product Delivered" : "Payment Failed");
       const baseCustomer = customers.find((customer) => customer._id === customerId) || customers[0];
       ticketRecord = await createTicket({
         customer: customerId,
         title: scenarioLabel,
-        description: draft,
+        description: message,
         category: scenarioLabel === "Account Locked" ? "technical" : scenarioLabel === "Subscription Cancellation" ? "retention" : "billing",
         priority: scenarioLabel === "Payment Failed" || scenarioLabel === "Refund Request" ? "high" : "medium",
         status: "open",
         assignedAgent: "AI Agent",
-        conversation: [{ role: "customer", text: draft, time: formatTime() }],
+        conversation: [{ role: "customer", text: message, time: formatTime() }],
       }).then((response) => response.data.data);
       setTickets((current) => [ticketRecord, ...current.filter((ticket) => ticket._id !== ticketRecord._id)]);
       setSelectedTicketId(ticketRecord._id);
-      setChatMessages([{ role: "customer", text: draft, time: formatTime(), status: "Sent" }]);
-      setDraft("");
+      setChatMessages([{ role: "customer", text: message, time: formatTime(), status: "Sent" }]);
+      if (!options.demoMode) setDraft("");
       setPipeline((current) => current.map((step, index) => ({ ...step, status: index === 0 ? "Running" : "Waiting" })));
 
-      const response = await processAI({ customerId, message: draft });
+      const response = await processAI({ customerId, message });
       const data = response?.data?.data || {};
       setAiResult(data);
 
       updatePipelineStep(0, { status: "Done", output: `${data.intent?.intent || "payment_issue"} • ${Math.round((Number(data.intent?.confidence || data.confidence || 0) * 100)) || 98}%` });
       appendActivity(`${formatTime()} Intent detected`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (options.demoMode) setDemoTimelineStep(1);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       updatePipelineStep(1, { status: "Done", output: `${data.sentiment?.sentiment || "frustrated"} • ${Math.round((Number(data.sentiment?.score || data.sentiment?.confidence * 100 || 92))) || 92}%` });
       appendActivity(`${formatTime()} Sentiment analyzed`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (options.demoMode) setDemoTimelineStep(2);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       updatePipelineStep(2, { status: "Done", output: `${data.customer?.customer?.name || baseCustomer?.name || "Customer"} • ${data.customer?.tier || baseCustomer?.tier || "Premium"}` });
       appendActivity(`${formatTime()} Customer profile fetched`);
-      await new Promise((resolve) => setTimeout(resolve, 350));
+      if (options.demoMode) setDemoTimelineStep(3);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       updatePipelineStep(3, { status: "Done", output: `${data.knowledge?.relevantPolicies?.length || 0} articles matched` });
       appendActivity(`${formatTime()} Knowledge retrieved`);
-      await new Promise((resolve) => setTimeout(resolve, 450));
+      if (options.demoMode) setDemoTimelineStep(4);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       updatePipelineStep(4, { status: "Done", output: data.resolution?.source === "openai" ? "OpenAI response generated" : "Fallback response generated" });
       appendActivity(`${formatTime()} AI response generated`);
-      await new Promise((resolve) => setTimeout(resolve, 300));
+      if (options.demoMode) setDemoTimelineStep(5);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
       updatePipelineStep(5, { status: "Done", output: data.escalation?.status || (data.escalation?.escalate ? "Escalate" : "Resolved") });
       appendActivity(`${formatTime()} Ticket ${data.escalation?.escalate ? "escalated" : "resolved"}`);
+      if (options.demoMode) setDemoTimelineStep(6);
+
+      const humanReview = {
+        required: Boolean(data.humanReviewRequired),
+        status: data.humanReviewRequired ? "open" : "not_required",
+        finalAction: data.humanReviewRequired ? null : "approved",
+        reason: data.humanReviewRequired ? "Confidence or sentiment threshold triggered human review." : "AI confidence and knowledge coverage were sufficient.",
+        originalResponse: data.resolution?.response,
+        editedResponse: data.resolution?.response,
+        difference: "",
+        reviewedAt: null,
+        reviewedBy: null,
+      };
 
       const updatedTicket = await updateTicket(ticketRecord._id, {
         intent: data.intent?.intent,
@@ -176,20 +252,39 @@ export default function Workspace() {
         resolutionTimeMs: data.processingTime,
         resolvedAt: new Date().toISOString(),
         status: data.escalation?.escalate ? "pending" : "resolved",
-        conversation: [
-          { role: "customer", text: draft, time: formatTime() },
-          { role: "agent", text: data.resolution?.response, time: formatTime() },
-        ],
+        conversation: [{ role: "customer", text: message, time: formatTime() }, { role: "agent", text: data.resolution?.response, time: formatTime() }],
+        explanation: data.explanation || {},
+        humanReview,
+        satisfactionPrediction: data.satisfactionPrediction,
+        rootCause: data.rootCause,
+        executiveSummary: data.report,
+        smartRecommendations: data.smartRecommendations,
       }).then((response) => response.data.data);
 
       setTickets((current) => [updatedTicket, ...current.filter((ticket) => ticket._id !== updatedTicket._id)]);
-      setChatMessages([
-        { role: "customer", text: draft, time: formatTime(), status: "Sent" },
-        { role: "ai", text: data.resolution?.response || "We’re reviewing your request.", time: formatTime(), status: data.escalation?.escalate ? "Escalated" : "Resolved" },
-      ]);
+      setExecutiveSummary(data.report || null);
+      if (options.demoMode) setDemoTimelineStep(7);
+      setChatMessages([{ role: "customer", text: message, time: formatTime(), status: "Sent" }, { role: "ai", text: data.resolution?.response || "We’re reviewing your request.", time: formatTime(), status: data.escalation?.escalate ? "Escalated" : "Resolved" }]);
       const refreshedLogs = await getLogs().catch(() => null);
       setLiveLogs(refreshedLogs?.data?.data || []);
-      setTimeout(() => loadWorkspace(), 400);
+      if (options.demoMode) {
+        setDemoTimelineStep(8);
+        setDemoScenario(scenarioLabel);
+        setDemoReport({
+          status: "Demo Completed Successfully",
+          executionTimeMs: Date.now() - (demoStartAt || Date.now()),
+          customer: baseCustomer?.name || "Customer",
+          problem: scenarioLabel,
+          intent: data.intent?.intent || "payment_issue",
+          sentiment: data.sentiment?.sentiment || "frustrated",
+          knowledgeSources: data.knowledge?.relevantPolicies?.length || 0,
+          aiResponse: data.resolution?.response || "",
+          humanReview: humanReview.status,
+          resolution: data.escalation?.status || "Resolved",
+          finalOutcome: data.escalation?.escalate ? "Escalated" : "Resolved",
+        });
+      }
+      setTimeout(() => loadWorkspace(), 250);
     } catch (err) {
       const message = err?.response?.data?.message || "The AI workflow could not be completed.";
       setError(message);
@@ -216,7 +311,7 @@ export default function Workspace() {
           <header className="border-b border-white/10 bg-slate-950/70 px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="relative w-full max-w-xl"><Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Search workspace context" /></div>
-              <div className="flex flex-wrap items-center gap-3"><div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"><div className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-blue-300" />{currentTime}</div></div><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Bell className="h-4 w-4" /></button><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Moon className="h-4 w-4" /></button><div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">O</div><div><p className="text-sm font-medium text-white">Operations</p><p className="text-xs text-slate-400">Supervisor</p></div></div></div>
+              <div className="flex flex-wrap items-center gap-3"><div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"><div className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-blue-300" />{currentTime}</div></div><button onClick={runLiveDemo} className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20">{demoRunning ? "Running Demo" : "Run Live Demo"}</button><button onClick={resetDemo} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10">Reset Demo</button><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Bell className="h-4 w-4" /></button><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Moon className="h-4 w-4" /></button><div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">O</div><div><p className="text-sm font-medium text-white">Operations</p><p className="text-xs text-slate-400">Supervisor</p></div></div></div>
             </div>
           </header>
 
@@ -239,7 +334,22 @@ export default function Workspace() {
             <div className="space-y-6">
               <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.08 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">AI Workflow</p><h2 className="mt-1 text-xl font-semibold text-white">Live execution</h2></div><div className="rounded-full border border-violet-400/20 bg-violet-500/10 p-2 text-violet-300"><ShieldCheck className="h-4 w-4" /></div></div><div className="mt-5 space-y-3">{pipeline.map((step, index) => <div key={step.title} className={`rounded-[1.15rem] border p-3 ${step.status === "Done" ? "border-emerald-400/20 bg-emerald-500/10" : index === 0 && isProcessing ? "border-blue-400/40 bg-blue-500/10" : "border-white/10 bg-slate-950/70"}`}><div className="flex items-center justify-between"><p className="text-sm font-semibold text-white">{step.title}</p>{step.status === "Done" ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : isProcessing && index === pipeline.findIndex((item) => item.status === "Running") ? <div className="h-3 w-3 animate-pulse rounded-full bg-blue-400" /> : <div className="h-3 w-3 rounded-full bg-slate-600" />}</div><p className="mt-2 text-xs text-slate-400">{step.status}</p><p className="mt-1 text-xs text-cyan-300">{step.output || step.detail}</p></div>)}</div></motion.section>
 
-              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.14 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Activity Log</p><h2 className="mt-1 text-xl font-semibold text-white">Live console</h2></div><Activity className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 max-h-96 space-y-3 overflow-auto pr-1">{liveLogs.slice(0, 10).map((log, index) => <div key={`${log.timestamp || index}-${index}`} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span className="font-medium text-white">{log.message || log.step || log.workflowId || "Event"}</span><span className="text-xs text-slate-400">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Live"}</span></div><p className="mt-1 text-xs text-slate-400">{log.detail || log.status || "Workflow update"}</p></div>)}</div></motion.section>
+              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Retrieved Knowledge</p><h2 className="mt-1 text-xl font-semibold text-white">Top matching chunks</h2></div><Search className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 space-y-3">{(aiResult?.knowledge?.matchedChunks || []).slice(0, 5).map((chunk) => <div key={chunk.id} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><div className="flex items-center justify-between text-xs text-slate-400"><span>{chunk.sourceFile}</span><span>Page {chunk.page}</span></div><p className="mt-2 text-sm font-medium text-white">{(chunk.similarity * 100).toFixed(1)}% similarity</p><p className="mt-2 text-sm leading-6 text-slate-300"><span className="rounded bg-blue-500/15 px-1 text-blue-200">{chunk.snippet || chunk.text?.slice(0, 180)}</span></p><p className="mt-2 text-xs text-slate-400">Confidence {chunk.confidence}% · {chunk.reason}</p></div>)}{!(aiResult?.knowledge?.matchedChunks || []).length ? <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-400">No matching company knowledge found.</div> : null}</div></motion.section>
+              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.14 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+                <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Hackathon Demo</p><h2 className="mt-1 text-xl font-semibold text-white">Workflow timeline</h2></div><div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{demoRunning ? "Live" : "Ready"}</div></div>
+                <div className="mt-5 space-y-2">{demoSteps.map((step, index) => <div key={step} className={`rounded-[1.1rem] border px-3 py-2 text-xs ${index <= demoTimelineStep ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-slate-950/70 text-slate-400"}`}><div className="flex items-center justify-between gap-3"><span className="font-medium">{step}</span><span>{index < demoTimelineStep ? "Complete" : index === demoTimelineStep ? "Current" : "Waiting"}</span></div></div>)}</div>
+                <div className="mt-4 rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span>Scenario</span><span>{demoScenario || "Random selection"}</span></div><div className="mt-2 flex items-center justify-between"><span>Execution Time</span><span>{demoReport?.executionTimeMs ? `${Math.round(demoReport.executionTimeMs / 1000)}s` : "—"}</span></div></div>
+              </motion.section>
+
+              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
+                <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Executive Report</p><h2 className="mt-1 text-xl font-semibold text-white">Demo outcome</h2></div><Zap className="h-4 w-4 text-cyan-300" /></div>
+                <div className="mt-4 space-y-3 text-sm text-slate-300">
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Status</p><p className="mt-1 text-white">{demoReport?.status || "Awaiting demo"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Final Outcome</p><p className="mt-1 text-white">{demoReport?.finalOutcome || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Execution Time</p><p className="mt-1 text-white">{demoReport?.executionTimeMs ? `${Math.round(demoReport.executionTimeMs / 1000)} seconds` : "—"}</p></div>
+                </div>
+              </motion.section>
+              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.22 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Activity Log</p><h2 className="mt-1 text-xl font-semibold text-white">Live console</h2></div><Activity className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 max-h-96 space-y-3 overflow-auto pr-1">{liveLogs.slice(0, 10).map((log, index) => <div key={`${log.timestamp || index}-${index}`} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span className="font-medium text-white">{log.message || log.step || log.workflowId || "Event"}</span><span className="text-xs text-slate-400">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Live"}</span></div><p className="mt-1 text-xs text-slate-400">{log.detail || log.status || "Workflow update"}</p></div>)}</div></motion.section>
             </div>
           </main>
         </div>
@@ -247,3 +357,12 @@ export default function Workspace() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+

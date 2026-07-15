@@ -14,7 +14,7 @@ export const getTickets = async (req, res) => {
 
 export const createTicket = async (req, res) => {
   try {
-    const { customer, title, description, category, priority, status, assignedAgent, intent, sentiment, aiResponse, escalationStatus, escalationReason, resolutionTimeMs, resolvedAt, conversation } = req.body;
+    const { customer, title, description, category, priority, status, assignedAgent, intent, sentiment, aiResponse, escalationStatus, escalationReason, resolutionTimeMs, resolvedAt, conversation, explanation, humanReview, satisfactionPrediction, rootCause, executiveSummary, smartRecommendations } = req.body;
 
     if (customer) {
       const existingCustomer = await Customer.findById(customer);
@@ -39,6 +39,12 @@ export const createTicket = async (req, res) => {
       resolvedAt,
       lastActivityAt: new Date(),
       conversation,
+      explanation,
+      humanReview,
+      satisfactionPrediction,
+      rootCause,
+      executiveSummary,
+      smartRecommendations,
     });
 
     const populatedTicket = await Ticket.findById(ticket._id).populate("customer", "name email company membership tier status");

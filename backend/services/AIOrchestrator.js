@@ -10,6 +10,7 @@ import metricsStore from "./metricsStore.js";
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const estimateTokens = (text = "") => Math.max(12, Math.round(String(text).split(/\s+/).filter(Boolean).length * 1.35));
+const similarityToLabel = (score) => (score >= 0.9 ? "Very Happy" : score >= 0.75 ? "Satisfied" : score >= 0.55 ? "Neutral" : score >= 0.35 ? "Unsatisfied" : "Very Angry");
 
 class AIOrchestrator {
   constructor() {
@@ -31,29 +32,11 @@ class AIOrchestrator {
         const result = await runner();
         const duration = result?.durationMs ?? 0;
         const output = result?.output || {};
-        this.stateManager.setAgentState(workflowId, agentName, "completed", {
-          startedAt: state.startedAt,
-          endedAt: Date.now(),
-          attempts: attempt,
-          durationMs: duration,
-          tokensUsed: estimateTokens(JSON.stringify(output)),
-          confidence: output.confidence ?? output.score ?? null,
-          reasoning: details.reasoning || null,
-          currentTask: details.currentTask || null,
-          explanation: `${details.explanation || agentName} ${result?.output ? "Completed successfully." : "Completed with partial data."}`,
-        });
+        this.stateManager.setAgentState(workflowId, agentName, "completed", { startedAt: state.startedAt, endedAt: Date.now(), attempts: attempt, durationMs: duration, tokensUsed: estimateTokens(JSON.stringify(output)), confidence: output.confidence ?? output.score ?? null, reasoning: details.reasoning || null, currentTask: details.currentTask || null, explanation: `${details.explanation || agentName} ${result?.output ? "Completed successfully." : "Completed with partial data."}` });
         return result;
       } catch (error) {
         if (attempt === 2) {
-          this.stateManager.setAgentState(workflowId, agentName, "failed", {
-            startedAt: state.startedAt,
-            endedAt: Date.now(),
-            attempts: attempt,
-            durationMs: 0,
-            tokensUsed: 0,
-            error: error.message,
-            explanation: `${details.explanation || agentName} Failed after retry. Continuing with partial results.`,
-          });
+          this.stateManager.setAgentState(workflowId, agentName, "failed", { startedAt: state.startedAt, endedAt: Date.now(), attempts: attempt, durationMs: 0, tokensUsed: 0, error: error.message, explanation: `${details.explanation || agentName} Failed after retry. Continuing with partial results.` });
           return null;
         }
         await delay(250);
@@ -114,7 +97,7 @@ class AIOrchestrator {
     emit("Knowledge Base Agent", "running", "Searching knowledge base.", { reasoning: "Ranking policy documents by similarity to the issue." });
     const knowledgeResult = await this.runWithRetry("KnowledgeAgent", () => this.knowledgeAgent.run(results.intent?.intent, message), workflowId, { currentTask: "Searching knowledge base", reasoning: `Matching documents for ${results.intent?.intent || scenario.intent}`, explanation: "Relevant knowledge selected." });
     addResult("KnowledgeAgent", knowledgeResult, "Relevant knowledge selected.");
-    emit("Knowledge Base Agent", "completed", `${results.knowledge?.relevantPolicies?.length || 0} articles matched`, { confidence: 0.88, tokensUsed: results.knowledge?.tokens_used });
+    emit("Knowledge Base Agent", "completed", `${results.knowledge?.matchedChunks?.length || 0} chunks matched`, { confidence: results.knowledge?.confidence || 0.88, tokensUsed: results.knowledge?.tokens_used });
 
     await delay(350);
     emit("Resolution Agent", "running", "Generating AI response.", { reasoning: "Composing an enterprise response using live customer context." });
@@ -140,14 +123,43 @@ class AIOrchestrator {
 
     const confidence = this.aggregateConfidence(results);
     const totalDuration = Date.now() - startedAt;
+    const knowledgeConfidence = Number(results.knowledge?.confidence || 0);
+    const satisfactionPrediction = similarityToLabel(Math.max(0.1, Math.min(0.99, (confidence + (results.sentiment?.score ? results.sentiment.score / 100 : 0.7)) / 2)));
+    const humanReviewRequired = confidence < 0.8 || /angry|urgent/i.test(results.sentiment?.sentiment || "") || knowledgeConfidence < 0.45;
+    const rootCause = {
+      primaryCause: results.intent?.intent || scenario.intent,
+      secondaryCause: results.sentiment?.sentiment || scenario.sentiment.sentiment,
+      businessCategory: results.intent?.intent?.includes("payment") || message.toLowerCase().includes("payment") ? "Finance" : results.intent?.intent?.includes("order") ? "Logistics" : results.intent?.intent?.includes("account") ? "Identity" : "Support",
+      resolutionCategory: results.escalation?.escalate ? "Escalation" : "Self-Serve Resolution",
+    };
+    const recommendations = [];
+    if (/refund|charged|payment/i.test(message)) recommendations.push("Offer refund", "Escalate to finance");
+    if (/shipping|delayed|wrong product/i.test(message)) recommendations.push("Escalate to logistics", "Follow up in 24 hours");
+    if (/cancel|subscription/i.test(message)) recommendations.push("Offer coupon", "Offer downgrade option");
+    if (!recommendations.length) recommendations.push("Follow up in 24 hours");
+
+    const explanation = {
+      intent: `Why this intent was selected: ${results.intent?.explanation || "The language matched the issue category and support keywords."}`,
+      sentiment: `Why this sentiment was selected: ${results.sentiment?.explanation || "The tone and urgency in the customer's language indicated the emotional state."}`,
+      knowledge: `Policy documents used: ${(results.knowledge?.matchedChunks || []).map((chunk) => `${chunk.sourceFile} (p.${chunk.page})`).join(", ") || "No matching company knowledge found."}`,
+      resolution: `Why this response was generated: ${results.resolution?.explanation || "The response used retrieved policy context, customer history, and the issue type."}`,
+      escalation: `Why escalation was ${results.escalation?.escalate ? "required" : "skipped"}: ${results.escalation?.reason || "It met policy and confidence thresholds."}`,
+    };
+
     const report = {
       agentsExecuted: executionOrder.length,
       executionTimeMs: totalDuration,
       confidence,
       finalDecision: results.escalation?.escalate ? "Escalate" : "Resolved",
       escalation: results.escalation?.escalate,
-      customerSatisfactionPrediction: Math.max(1, Math.min(5, Number((4.8 - (results.sentiment?.score ? (100 - results.sentiment.score) / 50 : 0)).toFixed(1)))),
+      customerSatisfactionPrediction: satisfactionPrediction,
+      explanation,
+      rootCause,
+      smartRecommendations: recommendations,
+      knowledgeConfidence,
+      humanReviewRequired,
     };
+
     this.stateManager.completeWorkflow(workflowId, { status: "completed", summary: report, report, totalDurationMs: totalDuration, confidence, successfulAgents: Object.keys(results).length });
 
     const escalation = Boolean(results.escalation?.escalate);
@@ -156,7 +168,20 @@ class AIOrchestrator {
 
     logWorkflow(workflowId, { type: "summary", customerId, message, results, confidence, report, totalDurationMs: totalDuration, executionOrder, executionLog, timestamp: new Date().toISOString() });
 
-    return { ...results, confidence, processingTime: totalDuration, executionOrder, executionLog, report, workflowId };
+    return {
+      ...results,
+      confidence,
+      processingTime: totalDuration,
+      executionOrder,
+      executionLog,
+      report,
+      explanation,
+      rootCause,
+      smartRecommendations: recommendations,
+      satisfactionPrediction,
+      humanReviewRequired,
+      workflowId,
+    };
   }
 
   aggregateConfidence(results) {
@@ -164,7 +189,7 @@ class AIOrchestrator {
     if (results.intent?.confidence !== undefined) values.push(Number(results.intent.confidence));
     if (results.sentiment?.confidence !== undefined) values.push(Number(results.sentiment.confidence));
     if (results.customer?.customer) values.push(0.9);
-    if (results.knowledge?.relevantPolicies?.length) values.push(0.88);
+    if (results.knowledge?.confidence !== undefined) values.push(Number(results.knowledge.confidence));
     if (results.resolution?.response) values.push(0.92);
     if (results.escalation?.priority) values.push(0.86);
     return values.length ? Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)) : 0;
