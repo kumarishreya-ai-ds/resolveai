@@ -1,7 +1,8 @@
-﻿import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Hero from "../components/landing/Hero";
 import Dashboard from "../pages/Dashboard";
 import Login from "../pages/Login";
+import Register from "../pages/Register";
 import Workspace from "../pages/Workspace";
 import { getStoredToken } from "../services/api";
 
@@ -31,6 +32,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/workspace" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
         <Route path="/home" element={<Navigate to="/" replace />} />

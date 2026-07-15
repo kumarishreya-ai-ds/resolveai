@@ -2,9 +2,20 @@ class AgentStateManager {
   constructor() {
     this.workflowStates = new Map();
     this.agentHealth = {};
+    this.queue = [];
+    this.completed = [];
   }
 
-  startWorkflow(workflowId) {
+  enqueue(workflowId, payload = {}) {
+    this.queue.push({ workflowId, enqueuedAt: Date.now(), status: "queued", ...payload });
+    return this.queue;
+  }
+
+  dequeue(workflowId) {
+    this.queue = this.queue.filter((item) => item.workflowId !== workflowId);
+  }
+
+  startWorkflow(workflowId, payload = {}) {
     const workflow = {
       workflowId,
       startedAt: Date.now(),
@@ -12,6 +23,9 @@ class AgentStateManager {
       status: "running",
       agents: {},
       executionOrder: [],
+      steps: [],
+      report: null,
+      ...payload,
     };
 
     this.workflowStates.set(workflowId, workflow);
@@ -20,44 +34,59 @@ class AgentStateManager {
 
   setAgentState(workflowId, agentName, state, details = {}) {
     const workflow = this.workflowStates.get(workflowId);
-    if (!workflow) {
-      return;
-    }
+    if (!workflow) return;
 
     const existing = workflow.agents[agentName] || {};
     const updated = {
       ...existing,
       name: agentName,
       state,
+      currentTask: details.currentTask ?? existing.currentTask ?? null,
+      reasoning: details.reasoning ?? existing.reasoning ?? null,
+      confidence: details.confidence ?? existing.confidence ?? null,
       startedAt: details.startedAt ?? existing.startedAt ?? null,
       endedAt: details.endedAt ?? existing.endedAt ?? null,
       attempts: details.attempts ?? existing.attempts ?? 1,
       durationMs: details.durationMs ?? existing.durationMs ?? 0,
+      tokensUsed: details.tokensUsed ?? existing.tokensUsed ?? 0,
       explanation: details.explanation ?? existing.explanation ?? null,
       error: details.error ?? existing.error ?? null,
     };
 
     workflow.agents[agentName] = updated;
-    if (!workflow.executionOrder.includes(agentName)) {
-      workflow.executionOrder.push(agentName);
-    }
+    if (!workflow.executionOrder.includes(agentName)) workflow.executionOrder.push(agentName);
+    workflow.steps.push({ agentName, state, timestamp: Date.now(), ...details });
     this.agentHealth[agentName] = state === "failed" ? "Degraded" : "Healthy";
   }
 
   completeWorkflow(workflowId, finalState = {}) {
     const workflow = this.workflowStates.get(workflowId);
-    if (!workflow) {
-      return;
-    }
+    if (!workflow) return;
 
     workflow.endedAt = Date.now();
     workflow.status = finalState.status || "completed";
     workflow.totalDurationMs = workflow.endedAt - workflow.startedAt;
     workflow.summary = finalState.summary || null;
+    workflow.report = finalState.report || workflow.report || null;
+    this.completed.unshift({ workflowId, ...workflow });
+    this.dequeue(workflowId);
   }
 
   getWorkflowState(workflowId) {
     return this.workflowStates.get(workflowId) || null;
+  }
+
+  getWorkflows() {
+    return Array.from(this.workflowStates.values()).sort((a, b) => b.startedAt - a.startedAt);
+  }
+
+  getQueueSnapshot() {
+    return {
+      queueSize: this.queue.length,
+      running: this.getWorkflows().filter((item) => item.status === "running").length,
+      completed: this.completed.length,
+      workflows: this.getWorkflows(),
+    };
   }
 
   getHealth() {
