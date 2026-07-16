@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Activity, ArrowUp, Bell, Bot, BrainCircuit, CheckCircle2, ChevronDown, ChevronRight, Clock3, LayoutDashboard, LogOut, MessageSquareText, Mic, Moon, Paperclip, Search, Settings, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
+import { Activity, ArrowUp, Bell, Bot, BrainCircuit, CheckCircle2, ChevronDown, ChevronRight, Clock3, Compass, LayoutDashboard, LogOut, MessageSquareText, Mic, Moon, Paperclip, Search, Settings, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { clearAuthToken, createTicket, getCustomers, getLogs, getTickets, processAI, updateTicket } from "../services/api";
@@ -358,6 +358,7 @@ export default function Workspace() {
     </div>
   );
 }
+
 
 
 
