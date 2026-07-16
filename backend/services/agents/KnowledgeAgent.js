@@ -1,4 +1,4 @@
-import { searchKnowledgeBase } from "../services/knowledgeRag.js";
+import { searchKnowledgeBase } from "../knowledgeRag.js";
 
 class KnowledgeAgent {
   async run(intent, message = "") {
@@ -26,3 +26,4 @@ class KnowledgeAgent {
 }
 
 export default KnowledgeAgent;
+

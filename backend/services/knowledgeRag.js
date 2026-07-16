@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import pdfParse from "pdf-parse";
+import * as pdfParseModule from "pdf-parse";
 import mammoth from "mammoth";
 import { fileURLToPath } from "url";
 import { chunkText, embedText, cosineSimilarity } from "./knowledgeVector.js";
@@ -13,7 +13,7 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const parseMarkdown = (buffer) => buffer.toString("utf8");
 const parseTxt = (buffer) => buffer.toString("utf8");
-const parsePdf = async (buffer) => (await pdfParse(buffer)).text || "";
+const parsePdf = async (buffer) => { const parser = pdfParseModule.default || pdfParseModule; const result = await parser(buffer); return result?.text || ""; };
 const parseDocx = async (buffer) => (await mammoth.extractRawText({ buffer })).value || "";
 
 const extractTextByType = async (mimeType, originalName, buffer) => {
@@ -63,3 +63,4 @@ export const searchKnowledgeBase = async (query, topK = 5) => {
 
 export const listKnowledgeDocuments = () => getKnowledgeStore().documents;
 export const deleteKnowledgeDocument = (documentId) => removeKnowledgeDocument(documentId);
+

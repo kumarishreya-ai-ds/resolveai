@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import mongoose from "mongoose";
 import connectDB from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
 import customerRoutes from "./routes/customerRoutes.js";
@@ -25,7 +26,9 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 connectDB();
 
 const app = express();
-app.use(cors());
+const allowedOrigins = [process.env.FRONTEND_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null, "http://localhost:3000", "http://127.0.0.1:3000"].filter(Boolean);
+const corsOptions = { origin: (origin, callback) => { if (!origin || allowedOrigins.includes(origin)) return callback(null, true); return callback(new Error("Not allowed by CORS")); }, credentials: true };
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -84,4 +87,7 @@ const seedData = async () => {
 app.get("/", (req, res) => res.json({ success: true, message: "ResolveAI Backend Running 🚀" }));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, async () => { await seedData(); console.log(`Server running on http://localhost:${PORT}`); });
+app.listen(PORT, async () => { if (mongoose.connection.readyState === 1) { await seedData(); } else { console.warn("Skipping seed data because MongoDB is not connected."); } console.log(`Server running on port ${PORT}`); });
+
+
+

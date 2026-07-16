@@ -8,6 +8,8 @@ const connectDB = async () => {
     console.log("Connecting to MongoDB...");
 
     const uri = process.env.MONGODB_URI?.trim();
+    const isProductionLike = process.env.NODE_ENV === "production" || Boolean(process.env.RENDER);
+
     if (uri) {
       const preview = uri.replace(/:(.*?)@/, ":***@");
       console.log("MONGODB_URI preview:", preview.slice(0, 25));
@@ -17,17 +19,15 @@ const connectDB = async () => {
         console.log("MongoDB Connected");
         return;
       } catch (error) {
-        console.warn("Primary MongoDB URI failed; falling back to local MongoDB:", error.message);
+        if (isProductionLike) {
+          throw error;
+        }
+        console.warn("Primary MongoDB URI failed; continuing without fallback in local mode:", error.message);
+        return;
       }
-    } else {
-      console.log("MONGODB_URI not set; using local MongoDB fallback.");
     }
 
-    mongoServer = await MongoMemoryServer.create();
-    const fallbackUri = mongoServer.getUri();
-    await mongoose.connect(fallbackUri);
-
-    console.log("MongoDB Connected");
+    console.log("MONGODB_URI not set; skipping database connection in local mode.");
   } catch (error) {
     console.error("MongoDB Connection Failed:", error.message);
     process.exit(1);
