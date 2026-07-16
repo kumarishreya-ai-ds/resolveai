@@ -1,4 +1,5 @@
 import Customer from "../models/Customer.js";
+import { getFirstCustomerId } from "../services/seedDatabase.js";
 import Ticket from "../models/Ticket.js";
 
 const generateTicketId = () => `TK-${Date.now()}`;
@@ -16,14 +17,17 @@ export const createTicket = async (req, res) => {
   try {
     const { customer, title, description, category, priority, status, assignedAgent, intent, sentiment, aiResponse, escalationStatus, escalationReason, resolutionTimeMs, resolvedAt, conversation, explanation, humanReview, satisfactionPrediction, rootCause, executiveSummary, smartRecommendations } = req.body;
 
-    if (customer) {
-      const existingCustomer = await Customer.findById(customer);
-      if (!existingCustomer) return res.status(400).json({ success: false, message: "Customer not found" });
+    const resolvedCustomer = customer || (await getFirstCustomerId());
+    if (!resolvedCustomer) {
+      return res.status(400).json({ success: false, message: "Customer is required" });
     }
+
+    const existingCustomer = await Customer.findById(resolvedCustomer);
+    if (!existingCustomer) return res.status(400).json({ success: false, message: "Customer not found" });
 
     const ticket = await Ticket.create({
       ticketId: req.body.ticketId || generateTicketId(),
-      customer,
+      customer: resolvedCustomer,
       title,
       description,
       category,
@@ -88,3 +92,5 @@ export const deleteTicket = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+
