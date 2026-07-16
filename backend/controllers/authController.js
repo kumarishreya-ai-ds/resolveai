@@ -10,6 +10,12 @@ const generateToken = (user) => {
 
 export const registerUser = async (req, res) => {
   try {
+    console.log("[auth/register]", {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      contentType: req.headers["content-type"],
+      body: req.body,
+    });
     const { name, email, password, role } = req.body;
 
     if (!name || !name.trim()) return res.status(400).json({ success: false, message: "Name is required" });
@@ -35,6 +41,12 @@ export const registerUser = async (req, res) => {
 
 export const loginUser = async (req, res) => {
   try {
+    console.log("[auth/login]", {
+      method: req.method,
+      originalUrl: req.originalUrl,
+      contentType: req.headers["content-type"],
+      body: req.body,
+    });
     const { email, password } = req.body;
     if (!email || !email.trim()) return res.status(400).json({ success: false, message: "Email is required" });
     if (!password) return res.status(400).json({ success: false, message: "Password is required" });
@@ -64,3 +76,4 @@ export const getMe = async (req, res) => {
     res.status(500).json({ success: false, message: "Failed to fetch user", error: error.message });
   }
 };
+

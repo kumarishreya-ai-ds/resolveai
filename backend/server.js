@@ -22,6 +22,8 @@ import { getKnowledgeStore } from "./services/knowledgeStore.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
 connectDB();
 const app = express();
 app.use(
@@ -30,6 +32,8 @@ app.use(
     credentials: true,
   })
 );
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
 app.use("/api/tickets", ticketRoutes);
@@ -87,6 +91,10 @@ app.get("/", (req, res) => res.json({ success: true, message: "ResolveAI Backend
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, async () => { if (mongoose.connection.readyState === 1) { await seedData(); } else { console.warn("Skipping seed data because MongoDB is not connected."); } console.log(`Server running on port ${PORT}`); });
+
+
+
+
 
 
 
