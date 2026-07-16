@@ -26,10 +26,29 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 connectDB();
 
 const app = express();
-const allowedOrigins = [process.env.FRONTEND_URL, process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null, "http://localhost:3000", "http://127.0.0.1:3000"].filter(Boolean);
-const corsOptions = { origin: (origin, callback) => { if (!origin || allowedOrigins.includes(origin)) return callback(null, true); return callback(new Error("Not allowed by CORS")); }, credentials: true };
-app.use(cors(corsOptions));
-app.use(express.json());
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
+  "https://resolveai-mocha.vercel.app",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log("Blocked CORS Origin:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/customers", customerRoutes);
