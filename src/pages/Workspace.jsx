@@ -1,16 +1,17 @@
 import { motion } from "framer-motion";
 import { Activity, ArrowUp, Bell, Bot, BrainCircuit, CheckCircle2, ChevronDown, ChevronRight, Clock3, LayoutDashboard, LogOut, MessageSquareText, Mic, Moon, Paperclip, Search, Settings, ShieldCheck, Sparkles, Users, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { clearAuthToken, createTicket, getCustomers, getLogs, getTickets, processAI, updateTicket } from "../services/api";
 
 const sidebarItems = [
-  { label: "Dashboard", icon: LayoutDashboard },
-  { label: "AI Workspace", icon: BrainCircuit, active: true },
-  { label: "Customers", icon: Users },
-  { label: "Tickets", icon: MessageSquareText },
-  { label: "Analytics", icon: Activity },
-  { label: "Settings", icon: Settings },
+  { label: "Dashboard", icon: LayoutDashboard, to: "/dashboard" },
+  { label: "Workspace", icon: BrainCircuit, to: "/workspace", active: true },
+  { label: "Customers", icon: Users, to: "/customers" },
+  { label: "Tickets", icon: MessageSquareText, to: "/tickets" },
+  { label: "Analytics", icon: Activity, to: "/analytics" },
+  { label: "Settings", icon: Settings, to: "/settings" },
+  { label: "Ops", icon: Compass, to: "/ops" },
 ];
 
 const demoScenarios = [
@@ -302,7 +303,7 @@ export default function Workspace() {
         <aside className="hidden w-72 flex-col justify-between border-r border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.23),_transparent_35%),linear-gradient(145deg,_rgba(6,10,24,0.98),_rgba(1,4,12,0.98))] p-6 lg:flex">
           <div>
             <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-blue-600 via-violet-600 to-cyan-400 shadow-lg shadow-blue-500/20"><Sparkles className="h-5 w-5 text-white" /></div><div><p className="text-sm tracking-[0.28em] text-slate-400">RESOLVEAI</p><p className="text-lg font-semibold text-white">Console</p></div></div>
-            <nav className="mt-8 space-y-2">{sidebarItems.map((item) => { const Icon = item.icon; return <button key={item.label} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${item.active ? "border border-blue-400/25 bg-blue-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}><Icon className="h-4 w-4" />{item.label}</button>; })}</nav>
+            <nav className="mt-8 space-y-2">{sidebarItems.map((item) => { const Icon = item.icon; const content = <><Icon className="h-4 w-4" />{item.label}</>; return item.to ? <Link key={item.label} to={item.to} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${item.active ? "border border-blue-400/25 bg-blue-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>{content}</Link> : <button key={item.label} className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium transition ${item.active ? "border border-blue-400/25 bg-blue-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>{content}</button>; })}</nav>
           </div>
           <div className="space-y-3 rounded-[1.5rem] border border-white/10 bg-white/5 p-4"><div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600"><Bot className="h-5 w-5 text-white" /></div><div><p className="text-sm font-semibold text-white">Ops</p><p className="text-xs text-slate-400">Support Lead</p></div></div><button onClick={handleLogout} className="flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-950/50 px-3 py-2.5 text-sm text-slate-300 transition hover:bg-slate-900 hover:text-white"><LogOut className="h-4 w-4" />Logout</button></div>
         </aside>
@@ -357,6 +358,8 @@ export default function Workspace() {
     </div>
   );
 }
+
+
 
 
 

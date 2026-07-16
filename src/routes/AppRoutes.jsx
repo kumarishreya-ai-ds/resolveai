@@ -1,6 +1,11 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Hero from "../components/landing/Hero";
 import Dashboard from "../pages/Dashboard";
+import Customers from "../pages/Customers";
+import Tickets from "../pages/Tickets";
+import Analytics from "../pages/Analytics";
+import Settings from "../pages/Settings";
+import Ops from "../pages/Ops";
 import KnowledgeBase from "../pages/KnowledgeBase";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
@@ -20,6 +25,11 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+        <Route path="/tickets" element={<ProtectedRoute><Tickets /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/ops" element={<ProtectedRoute><Ops /></ProtectedRoute>} />
         <Route path="/workspace" element={<ProtectedRoute><Workspace /></ProtectedRoute>} />
         <Route path="/knowledge-base" element={<ProtectedRoute><KnowledgeBase /></ProtectedRoute>} />
         <Route path="/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
