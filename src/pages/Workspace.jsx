@@ -64,6 +64,7 @@ export default function Workspace() {
   const [demoTimelineStep, setDemoTimelineStep] = useState(0);
   const [demoReport, setDemoReport] = useState(null);
   const [demoStartAt, setDemoStartAt] = useState(null);
+  const [toast, setToast] = useState(null);
   const logTimerRef = useRef(null);
   const logPollRef = useRef(null);
   const currentTime = useMemo(() => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }), []);
@@ -71,7 +72,7 @@ export default function Workspace() {
   const selectedTicket = tickets.find((ticket) => ticket._id === selectedTicketId) || tickets[0];
   const selectedCustomerId = selectedTicket?.customer?._id || selectedTicket?.customer || customers[0]?._id;
   const knowledgeChunks = aiResult?.knowledge?.matchedChunks || [];
-  const demoSteps = ["Customer ticket", "Intent", "Sentiment", "Customer Profile", "Knowledge Retrieval", "Resolution", "Human Review", "Executive Summary"];
+  const demoSteps = ["Ready", "Customer Ticket", "Intent", "Sentiment", "Customer Profile", "Knowledge Retrieval", "Resolution", "Human Review", "Executive Summary", "Completed"];
   const knowledgeConfidence = Number(aiResult?.knowledge?.confidence ?? (knowledgeChunks[0]?.confidence || 0));
   const reviewRequired = Boolean(aiResult?.humanReviewRequired || selectedTicket?.humanReview?.required);
 
@@ -136,6 +137,7 @@ export default function Workspace() {
     setDemoScenario("");
     setDemoTimelineStep(0);
     setDemoStartAt(null);
+    setToast(null);
     setPipeline(pipelineTemplate.map((step) => ({ ...step, status: "Waiting", output: "" })));
     setChatMessages([]);
     setLiveLogs([]);
@@ -202,35 +204,36 @@ export default function Workspace() {
       setSelectedTicketId(ticketRecord._id);
       setChatMessages([{ role: "customer", text: message, time: formatTime(), status: "Sent" }]);
       if (!options.demoMode) setDraft("");
-      setPipeline((current) => current.map((step, index) => ({ ...step, status: index === 0 ? "Running" : "Waiting" })));
+      setPipeline((current) => current.map((step, index) => ({ ...step, status: index === 0 ? "Done" : "Waiting" })));
+      setDemoTimelineStep(1);
 
       const response = await processAI({ customerId, message });
       const data = response?.data?.data || {};
       setAiResult(data);
 
-      updatePipelineStep(0, { status: "Done", output: `${data.intent?.intent || "payment_issue"} • ${Math.round((Number(data.intent?.confidence || data.confidence || 0) * 100)) || 98}%` });
+      updatePipelineStep(1, { status: "Done", output: `${data.intent?.intent || "payment_issue"} • ${Math.round((Number(data.intent?.confidence || data.confidence || 0) * 100)) || 98}%` });
       appendActivity(`${formatTime()} Intent detected`);
-      if (options.demoMode) setDemoTimelineStep(1);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      updatePipelineStep(1, { status: "Done", output: `${data.sentiment?.sentiment || "frustrated"} • ${Math.round((Number(data.sentiment?.score || data.sentiment?.confidence * 100 || 92))) || 92}%` });
-      appendActivity(`${formatTime()} Sentiment analyzed`);
       if (options.demoMode) setDemoTimelineStep(2);
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-      updatePipelineStep(2, { status: "Done", output: `${data.customer?.customer?.name || baseCustomer?.name || "Customer"} • ${data.customer?.tier || baseCustomer?.tier || "Premium"}` });
-      appendActivity(`${formatTime()} Customer profile fetched`);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      updatePipelineStep(2, { status: "Done", output: `${data.sentiment?.sentiment || "frustrated"} • ${Math.round((Number(data.sentiment?.score || data.sentiment?.confidence * 100 || 92))) || 92}%` });
+      appendActivity(`${formatTime()} Sentiment analyzed`);
       if (options.demoMode) setDemoTimelineStep(3);
       await new Promise((resolve) => setTimeout(resolve, 1200));
-      updatePipelineStep(3, { status: "Done", output: `${data.knowledge?.relevantPolicies?.length || 0} articles matched` });
-      appendActivity(`${formatTime()} Knowledge retrieved`);
+      updatePipelineStep(3, { status: "Done", output: `${data.customer?.customer?.name || baseCustomer?.name || "Customer"} • ${data.customer?.tier || baseCustomer?.tier || "Premium"}` });
+      appendActivity(`${formatTime()} Customer profile fetched`);
       if (options.demoMode) setDemoTimelineStep(4);
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      updatePipelineStep(4, { status: "Done", output: `${data.knowledge?.matchedChunks?.length || 0} articles matched` });
+      appendActivity(`${formatTime()} Knowledge retrieved`);
+      if (options.demoMode) setDemoTimelineStep(5);
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      updatePipelineStep(4, { status: "Done", output: data.resolution?.source === "openai" ? "OpenAI response generated" : "Fallback response generated" });
+      updatePipelineStep(5, { status: "Done", output: data.resolution?.response || "AI response generated" });
       appendActivity(`${formatTime()} AI response generated`);
       if (options.demoMode) setDemoTimelineStep(5);
       await new Promise((resolve) => setTimeout(resolve, 1200));
-      updatePipelineStep(5, { status: "Done", output: data.escalation?.status || (data.escalation?.escalate ? "Escalate" : "Resolved") });
+      updatePipelineStep(6, { status: "Done", output: data.escalation?.status || (data.escalation?.escalate ? "Escalate" : "Resolved") });
       appendActivity(`${formatTime()} Ticket ${data.escalation?.escalate ? "escalated" : "resolved"}`);
-      if (options.demoMode) setDemoTimelineStep(6);
+      if (options.demoMode) setDemoTimelineStep(7);
 
       const humanReview = {
         required: Boolean(data.humanReviewRequired),
@@ -263,26 +266,30 @@ export default function Workspace() {
       }).then((response) => response.data.data);
 
       setTickets((current) => [updatedTicket, ...current.filter((ticket) => ticket._id !== updatedTicket._id)]);
+      setSelectedTicketId(updatedTicket._id);
       setExecutiveSummary(data.report || null);
-      if (options.demoMode) setDemoTimelineStep(7);
-      setChatMessages([{ role: "customer", text: message, time: formatTime(), status: "Sent" }, { role: "ai", text: data.resolution?.response || "We’re reviewing your request.", time: formatTime(), status: data.escalation?.escalate ? "Escalated" : "Resolved" }]);
+      if (options.demoMode) setDemoTimelineStep(8);
+      setChatMessages([{ role: "customer", text: message, time: formatTime(), status: "Sent" }, { role: "ai", text: data.resolution?.response || "We're reviewing your request.", time: formatTime(), status: data.escalation?.escalate ? "Escalated" : "Resolved" }]);
       const refreshedLogs = await getLogs().catch(() => null);
       setLiveLogs(refreshedLogs?.data?.data || []);
+      setToast({ message: "Ticket created successfully.", type: "success" });
+      window.clearTimeout(window.__resolveAiToastTimer);
+      window.__resolveAiToastTimer = window.setTimeout(() => setToast(null), 3000);
       if (options.demoMode) {
-        setDemoTimelineStep(8);
+        setDemoTimelineStep(9);
         setDemoScenario(scenarioLabel);
         setDemoReport({
           status: "Demo Completed Successfully",
-          executionTimeMs: Date.now() - (demoStartAt || Date.now()),
-          customer: baseCustomer?.name || "Customer",
+          ticketId: updatedTicket.ticketId,
+          customer: updatedTicket.customer?.name || baseCustomer?.name || "Customer",
           problem: scenarioLabel,
           intent: data.intent?.intent || "payment_issue",
           sentiment: data.sentiment?.sentiment || "frustrated",
-          knowledgeSources: data.knowledge?.relevantPolicies?.length || 0,
-          aiResponse: data.resolution?.response || "",
-          humanReview: humanReview.status,
-          resolution: data.escalation?.status || "Resolved",
-          finalOutcome: data.escalation?.escalate ? "Escalated" : "Resolved",
+          priority: updatedTicket.priority || "medium",
+          escalationDecision: data.escalation?.escalate ? "Escalate" : "Resolved",
+          resolution: data.resolution?.response || "",
+          executionTimeMs: data.processingTime || Math.max(1, Date.now() - (demoStartAt || Date.now())),
+          escalationReason: data.escalation?.escalate ? (data.escalation?.reason || "") : "",
         });
       }
       setTimeout(() => loadWorkspace(), 250);
@@ -338,22 +345,32 @@ export default function Workspace() {
               <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.12 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Retrieved Knowledge</p><h2 className="mt-1 text-xl font-semibold text-white">Top matching chunks</h2></div><Search className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 space-y-3">{(aiResult?.knowledge?.matchedChunks || []).slice(0, 5).map((chunk) => <div key={chunk.id} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><div className="flex items-center justify-between text-xs text-slate-400"><span>{chunk.sourceFile}</span><span>Page {chunk.page}</span></div><p className="mt-2 text-sm font-medium text-white">{(chunk.similarity * 100).toFixed(1)}% similarity</p><p className="mt-2 text-sm leading-6 text-slate-300"><span className="rounded bg-blue-500/15 px-1 text-blue-200">{chunk.snippet || chunk.text?.slice(0, 180)}</span></p><p className="mt-2 text-xs text-slate-400">Confidence {chunk.confidence}% · {chunk.reason}</p></div>)}{!(aiResult?.knowledge?.matchedChunks || []).length ? <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-400">No matching company knowledge found.</div> : null}</div></motion.section>
               <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.14 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
                 <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Hackathon Demo</p><h2 className="mt-1 text-xl font-semibold text-white">Workflow timeline</h2></div><div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-300">{demoRunning ? "Live" : "Ready"}</div></div>
-                <div className="mt-5 space-y-2">{demoSteps.map((step, index) => <div key={step} className={`rounded-[1.1rem] border px-3 py-2 text-xs ${index <= demoTimelineStep ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : "border-white/10 bg-slate-950/70 text-slate-400"}`}><div className="flex items-center justify-between gap-3"><span className="font-medium">{step}</span><span>{index < demoTimelineStep ? "Complete" : index === demoTimelineStep ? "Current" : "Waiting"}</span></div></div>)}</div>
+                <div className="mt-5 space-y-2">{demoSteps.map((step, index) => <div key={step} className={`rounded-[1.1rem] border px-3 py-2 text-xs ${index < demoTimelineStep ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : index === demoTimelineStep ? "border-blue-400/30 bg-blue-500/10 text-blue-100" : "border-white/10 bg-slate-950/70 text-slate-400"}`}><div className="flex items-center justify-between gap-3"><span className="font-medium">{step}</span><span>{index < demoTimelineStep ? "Complete" : index === demoTimelineStep ? "Current" : "Waiting"}</span></div></div>)}</div>
                 <div className="mt-4 rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span>Scenario</span><span>{demoScenario || "Random selection"}</span></div><div className="mt-2 flex items-center justify-between"><span>Execution Time</span><span>{demoReport?.executionTimeMs ? `${Math.round(demoReport.executionTimeMs / 1000)}s` : "—"}</span></div></div>
               </motion.section>
 
               <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
                 <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Executive Report</p><h2 className="mt-1 text-xl font-semibold text-white">Demo outcome</h2></div><Zap className="h-4 w-4 text-cyan-300" /></div>
                 <div className="mt-4 space-y-3 text-sm text-slate-300">
-                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Status</p><p className="mt-1 text-white">{demoReport?.status || "Awaiting demo"}</p></div>
-                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Final Outcome</p><p className="mt-1 text-white">{demoReport?.finalOutcome || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Ticket ID</p><p className="mt-1 text-white">{demoReport?.ticketId || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Customer</p><p className="mt-1 text-white">{demoReport?.customer || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Intent</p><p className="mt-1 text-white">{demoReport?.intent || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Sentiment</p><p className="mt-1 text-white">{demoReport?.sentiment || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Priority</p><p className="mt-1 text-white">{demoReport?.priority || "—"}</p></div>
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Escalation</p><p className="mt-1 text-white">{demoReport?.escalationDecision || "—"}</p></div>
+                  {demoReport?.escalationReason ? <div className="rounded-[1.1rem] border border-amber-400/20 bg-amber-500/10 p-3"><p className="text-xs uppercase tracking-[0.2em] text-amber-200">Escalation Reason</p><p className="mt-1 text-amber-50">{demoReport.escalationReason}</p></div> : null}
+                  <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Resolution</p><p className="mt-1 text-white">{demoReport?.resolution || "—"}</p></div>
                   <div className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">Execution Time</p><p className="mt-1 text-white">{demoReport?.executionTimeMs ? `${Math.round(demoReport.executionTimeMs / 1000)} seconds` : "—"}</p></div>
                 </div>
-              </motion.section>
-              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.22 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Activity Log</p><h2 className="mt-1 text-xl font-semibold text-white">Live console</h2></div><Activity className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 max-h-96 space-y-3 overflow-auto pr-1">{liveLogs.slice(0, 10).map((log, index) => <div key={`${log.timestamp || index}-${index}`} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span className="font-medium text-white">{log.message || log.step || log.workflowId || "Event"}</span><span className="text-xs text-slate-400">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Live"}</span></div><p className="mt-1 text-xs text-slate-400">{log.detail || log.status || "Workflow update"}</p></div>)}</div></motion.section>
+              </motion.section>              <motion.section initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.22 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Activity Log</p><h2 className="mt-1 text-xl font-semibold text-white">Live console</h2></div><Activity className="h-4 w-4 text-cyan-300" /></div><div className="mt-5 max-h-96 space-y-3 overflow-auto pr-1">{liveLogs.slice(0, 10).map((log, index) => <div key={`${log.timestamp || index}-${index}`} className="rounded-[1.1rem] border border-white/10 bg-slate-950/70 p-3 text-sm text-slate-300"><div className="flex items-center justify-between"><span className="font-medium text-white">{log.message || log.step || log.workflowId || "Event"}</span><span className="text-xs text-slate-400">{log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Live"}</span></div><p className="mt-1 text-xs text-slate-400">{log.detail || log.status || "Workflow update"}</p></div>)}</div></motion.section>
             </div>
           </main>
         </div>
+      {toast ? (
+        <div className={`fixed bottom-5 right-5 z-50 rounded-2xl border px-4 py-3 text-sm shadow-xl ${toast.type === "success" ? "border-emerald-400/30 bg-emerald-500/15 text-emerald-50" : "border-white/10 bg-slate-950/90 text-white"}`}>
+          {toast.message}
+        </div>
+      ) : null}
       </div>
     </div>
   );
