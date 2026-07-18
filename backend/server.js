@@ -25,24 +25,6 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 
-connectDB();
-const app = express();
-app.use(
-  cors({
-    origin: true,
-    credentials: true,
-  })
-);
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use("/api/auth", authRoutes);
-app.use("/api/customers", customerRoutes);
-app.use("/api/tickets", ticketRoutes);
-app.use("/api/conversations", conversationRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/analytics", analyticsRoutes);
-app.use("/api/knowledge", knowledgeRoutes);
-
 const seedKnowledgeBase = async () => {
   const store = getKnowledgeStore();
   if (store.documents.length > 0) return;
@@ -60,30 +42,46 @@ const seedKnowledgeBase = async () => {
   }
 };
 
+const startServer = async () => {
+  await connectDB();
 
-app.get("/", (req, res) => res.json({ success: true, message: "ResolveAI Backend Running 🚀" }));
+  const app = express();
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+    })
+  );
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+  app.use("/api/auth", authRoutes);
+  app.use("/api/customers", customerRoutes);
+  app.use("/api/tickets", ticketRoutes);
+  app.use("/api/conversations", conversationRoutes);
+  app.use("/api/ai", aiRoutes);
+  app.use("/api/analytics", analyticsRoutes);
+  app.use("/api/knowledge", knowledgeRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, async () => {
-  try {
-    if (mongoose.connection.readyState === 1) {
-      await seedDatabase();
-      await seedKnowledgeBase();
-    } else {
-      console.warn("Skipping seed data because MongoDB is not connected.");
+  app.get("/", (req, res) => res.json({ success: true, message: "ResolveAI Backend Running 🚀" }));
+
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, async () => {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await seedDatabase();
+        await seedKnowledgeBase();
+      } else {
+        console.warn("Skipping seed data because MongoDB is not connected.");
+      }
+      console.log(`Server running on port ${PORT}`);
+    } catch (error) {
+      console.error("Seed data error:", error.message);
+      console.log(`Server running on port ${PORT}`);
     }
-    console.log(`Server running on port ${PORT}`);
-  } catch (error) {
-    console.error("Seed data error:", error.message);
-    console.log(`Server running on port ${PORT}`);
-  }
+  });
+};
+
+startServer().catch((error) => {
+  console.error("Server startup error:", error);
+  process.exit(1);
 });
-
-
-
-
-
-
-
-
-
