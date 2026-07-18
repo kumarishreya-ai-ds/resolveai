@@ -234,8 +234,8 @@ export default function Workspace() {
 
       const humanReview = {
         required: Boolean(data.humanReviewRequired),
-        status: data.humanReviewRequired ? "open" : "not_required",
-        finalAction: data.humanReviewRequired ? null : "approved",
+        status: data.humanReviewRequired ? "Pending" : "Approved",
+        finalAction: data.humanReviewRequired ? "None" : "Approve AI response",
         reason: data.humanReviewRequired ? "Confidence or sentiment threshold triggered human review." : "AI confidence and knowledge coverage were sufficient.",
         originalResponse: data.resolution?.response,
         editedResponse: data.resolution?.response,
@@ -358,6 +358,7 @@ export default function Workspace() {
     </div>
   );
 }
+
 
 
 
