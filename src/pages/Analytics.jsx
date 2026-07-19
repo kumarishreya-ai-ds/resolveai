@@ -40,9 +40,9 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
-      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
+      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
         <div className="border-b border-white/10 px-6 py-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-blue-300">Analytics</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-white">Operational analytics</h1>
@@ -51,10 +51,10 @@ export default function Analytics() {
           </div>
         </div>
 
-        <main className="space-y-6 p-6">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{kpis.map((kpi) => <motion.div key={kpi.label} whileHover={{ y: -3 }} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur-xl"><p className="text-sm text-slate-400">{kpi.label}</p><p className="mt-3 text-3xl font-semibold text-white">{kpi.value}</p></motion.div>)}</section>
+        <main className="min-w-0 space-y-6 p-6">
+          <section className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">{kpis.map((kpi) => <motion.div key={kpi.label} whileHover={{ y: -3 }} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur-xl"><p className="text-sm text-slate-400">{kpi.label}</p><p className="mt-3 text-3xl font-semibold text-white">{kpi.value}</p></motion.div>)}</section>
 
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+          <section className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
             <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
               <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Trend line</p><h2 className="mt-1 text-xl font-semibold text-white">AI workload this week</h2></div><Activity className="h-4 w-4 text-cyan-300" /></div>
               <div className="mt-5 h-72"><Line data={lineData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { color: "#94a3b8" } }, y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { color: "#94a3b8" } } } }} /></div>
@@ -72,7 +72,7 @@ export default function Analytics() {
             </div>
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-2">
+          <section className="grid min-w-0 gap-4 lg:grid-cols-2">
             <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
               <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">AI Metrics</p><h2 className="mt-1 text-xl font-semibold text-white">Live backend telemetry</h2></div><BrainCircuit className="h-4 w-4 text-violet-300" /></div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">{[["Requests processed", metrics?.requestsProcessed || 0],["Successful resolutions", metrics?.successfulResolutions || 0],["Escalations", metrics?.escalations || 0],["Average processing", `${metrics?.averageProcessingTime || 0}ms`]].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3"><p className="text-xs uppercase tracking-[0.2em] text-slate-500">{label}</p><p className="mt-2 text-lg font-semibold text-white">{value}</p></div>)}</div>

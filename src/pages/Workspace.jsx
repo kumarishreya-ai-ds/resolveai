@@ -306,7 +306,7 @@ export default function Workspace() {
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-7xl rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
         <aside className="hidden w-72 flex-col justify-between border-r border-white/10 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.23),_transparent_35%),linear-gradient(145deg,_rgba(6,10,24,0.98),_rgba(1,4,12,0.98))] p-6 lg:flex">
           <div>
             <div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-gradient-to-br from-blue-600 via-violet-600 to-cyan-400 shadow-lg shadow-blue-500/20"><Sparkles className="h-5 w-5 text-white" /></div><div><p className="text-sm tracking-[0.28em] text-slate-400">RESOLVEAI</p><p className="text-lg font-semibold text-white">Console</p></div></div>
@@ -318,12 +318,12 @@ export default function Workspace() {
         <div className="flex-1">
           <header className="border-b border-white/10 bg-slate-950/70 px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="relative w-full max-w-xl"><Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Search workspace context" /></div>
+              <div className="relative w-full min-w-0 max-w-xl"><Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Search workspace context" /></div>
               <div className="flex flex-wrap items-center gap-3"><div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300"><div className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-blue-300" />{currentTime}</div></div><button onClick={runLiveDemo} className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-100 transition hover:bg-blue-500/20">{demoRunning ? "Running Demo" : "Run Live Demo"}</button><button onClick={resetDemo} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10">Reset Demo</button><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Bell className="h-4 w-4" /></button><button className="rounded-2xl border border-white/10 bg-white/5 p-2.5 text-slate-300 transition hover:bg-white/10 hover:text-white"><Moon className="h-4 w-4" /></button><div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-2"><div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-blue-600 to-violet-600 font-semibold">O</div><div><p className="text-sm font-medium text-white">Operations</p><p className="text-xs text-slate-400">Supervisor</p></div></div></div>
             </div>
           </header>
 
-          <main className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1.05fr_1.15fr_0.9fr] lg:p-8">
+          <main className="grid min-w-0 gap-6 p-4 sm:p-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1.15fr)_minmax(0,0.9fr)] lg:p-8">
             <motion.section initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-xl">
               <div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">Customer Tickets</p><h2 className="mt-1 text-xl font-semibold text-white">Live queue</h2></div><div className="rounded-full border border-emerald-400/20 bg-emerald-500/10 p-2 text-emerald-300"><Users className="h-4 w-4" /></div></div>
               <div className="mt-5 space-y-3">

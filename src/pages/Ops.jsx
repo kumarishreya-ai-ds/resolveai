@@ -34,16 +34,16 @@ export default function Ops() {
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
-      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
+      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
         <div className="border-b border-white/10 px-6 py-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center justify-between gap-4">
             <div><p className="text-sm uppercase tracking-[0.3em] text-blue-300">Ops</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-white">System operations</h1></div>
             <Link to="/dashboard" className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-300 transition hover:bg-white/10 hover:text-white"><ArrowLeft className="h-4 w-4" />Dashboard</Link>
           </div>
         </div>
 
-        <div className="space-y-6 p-6">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{cards.map((card) => { const Icon = card.icon; return <motion.div key={card.label} whileHover={{ y: -3 }} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">{card.label}</p><p className="mt-3 text-2xl font-semibold text-white">{card.value}</p></div><Icon className="h-5 w-5 text-blue-300" /></div></motion.div>; })}</section>
+        <div className="min-w-0 space-y-6 p-6">
+          <section className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-3">{cards.map((card) => { const Icon = card.icon; return <motion.div key={card.label} whileHover={{ y: -3 }} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-4 backdrop-blur-xl"><div className="flex items-center justify-between"><div><p className="text-sm text-slate-400">{card.label}</p><p className="mt-3 text-2xl font-semibold text-white">{card.value}</p></div><Icon className="h-5 w-5 text-blue-300" /></div></motion.div>; })}</section>
 
           <section className="grid gap-6 xl:grid-cols-2">
             <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">

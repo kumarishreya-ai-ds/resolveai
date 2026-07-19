@@ -58,9 +58,9 @@ export default function Customers() {
 
   return (
     <div className="min-h-screen bg-[#030712] px-3 py-3 text-white sm:px-4 lg:px-5 lg:py-4">
-      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
+      <div className="mx-auto min-h-[calc(100vh-1.5rem)] max-w-7xl rounded-[2rem] border border-white/10 bg-slate-950/70 shadow-[0_0_80px_rgba(37,99,235,0.2)] backdrop-blur-2xl">
         <div className="border-b border-white/10 px-6 py-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.3em] text-blue-300">Customers</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em] text-white">Customer directory</h1>
@@ -69,8 +69,8 @@ export default function Customers() {
           </div>
         </div>
 
-        <div className="space-y-6 p-6">
-          <div className="grid gap-4 md:grid-cols-3">{metrics.map((metric) => <StatCard key={metric.label} {...metric} />)}</div>
+        <div className="min-w-0 space-y-6 p-6">
+          <div className="grid min-w-0 gap-4 md:grid-cols-3">{metrics.map((metric) => <StatCard key={metric.label} {...metric} />)}</div>
 
           <div className="rounded-[1.75rem] border border-white/10 bg-white/5 p-5 backdrop-blur-xl">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -78,7 +78,7 @@ export default function Customers() {
                 <p className="text-sm text-slate-400">Search and review live customer records</p>
                 <h2 className="mt-1 text-xl font-semibold text-white">Profiles and account context</h2>
               </div>
-              <div className="relative w-full max-w-xl">
+              <div className="relative w-full min-w-0 max-w-xl">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-11 pr-4 text-sm text-white outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30" placeholder="Search name, email, company, tier, or status" />
               </div>
