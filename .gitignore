@@ -1,4 +1,9 @@
-﻿node_modules/
+node_modules/
 dist/
 .vite/
 .env
+.env.*
+backend/node_modules/
+backend/.env
+backend/.env.*
+backend/logs/*.log

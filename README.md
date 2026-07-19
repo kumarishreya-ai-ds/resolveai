@@ -1,207 +1,341 @@
-# ResolveAI – Autonomous Multi-Agent Customer Resolution Platform
+# ResolveAI
 
-## Overview
+[![Build](https://img.shields.io/badge/build-passing-16a34a?style=for-the-badge)](./package.json)
+[![Frontend](https://img.shields.io/badge/frontend-React%20%2B%20Vite-61dafb?style=for-the-badge)](./package.json)
+[![Backend](https://img.shields.io/badge/backend-Express%20%2B%20MongoDB-10b981?style=for-the-badge)](./backend/package.json)
+[![AI](https://img.shields.io/badge/AI%20Orchestration-OpenAI%20%2B%20Gemini-0f172a?style=for-the-badge)](./backend/package.json)
+[![License](https://img.shields.io/badge/license-MIT-f59e0b?style=for-the-badge)](./LICENSE)
 
-ResolveAI is an AI-powered customer support platform that automates the complete customer resolution workflow using multiple specialized AI agents.
+> Autonomous customer resolution for support teams that need speed, context, and consistency.
 
-Instead of using a single chatbot, ResolveAI orchestrates multiple intelligent agents that collaborate to understand customer issues, retrieve relevant knowledge, generate personalized responses, determine escalation requirements, and automatically create support tickets.
+![ResolveAI hero screenshot](docs/screenshots/hero.png)
 
----
+ResolveAI is a multi-agent customer support platform that classifies issues, analyzes sentiment, retrieves knowledge, drafts responses, decides escalation, and generates reporting for support leaders.
 
-## Problem Statement
+### Quick Links
 
-Traditional customer support requires human agents to:
+- [Why ResolveAI?](#why-resolveai)
+- [Project Overview](#project-overview)
+- [Screenshots](#screenshots)
+- [Architecture](#architecture-diagram)
+- [Installation](#installation)
+- [API Overview](#api-overview)
+- [Deployment](#deployment)
+- [Technical Report](./TECHNICAL_REPORT.md)
+- [Architecture Doc](./Architecture.md)
+- [Submission Checklist](./SUBMISSION_CHECKLIST.md)
 
-- Understand customer issues
-- Analyze customer sentiment
-- Search company documentation
-- Generate responses
-- Decide escalation
-- Create support tickets manually
+## 🚀 Why ResolveAI?
 
-This process is time-consuming and difficult to scale.
+- It turns customer support from a manual queue into an AI-assisted workflow.
+- It gives judges a clear multi-agent story instead of a generic chatbot demo.
+- It combines operational usefulness with measurable AI orchestration.
+- It shows a complete product surface: landing page, dashboard, customers, tickets, workspace, analytics, and executive reporting.
 
----
+## 📌 Project Overview
 
-## Solution
+Modern support teams spend most of their time moving between customer context, policy documents, response drafting, and escalation decisions. ResolveAI consolidates that work into one AI-assisted platform with a structured agent orchestration layer and a support operations dashboard.
 
-ResolveAI automates the complete support lifecycle using AI Agents.
+## 🧩 Problem Statement
 
-The platform:
+Customer support operations are usually fragmented across inboxes, knowledge bases, ticketing tools, and manual escalation workflows. This creates:
 
-- Detects customer intent
-- Performs sentiment analysis
-- Retrieves customer profile
-- Searches organizational knowledge
-- Generates intelligent responses
-- Determines escalation
-- Creates support tickets automatically
+- Slow response times
+- Inconsistent support quality
+- Repetitive triage work
+- Poor visibility into recurring issues
+- Higher operational cost as support volume grows
 
----
+## 💡 Solution
 
-## AI Agents
+ResolveAI coordinates specialized AI agents around each support step. The platform can understand the customer request, evaluate tone and urgency, retrieve relevant policy information, draft a helpful response, and decide whether the case should be escalated or converted into a support ticket.
 
-### Intent Agent
+## ✨ Key Features
 
-Identifies the customer's problem category.
+- Multi-agent AI orchestration for support resolution
+- Intent and sentiment analysis
+- Customer profile lookup and case history context
+- Knowledge base retrieval with policy-backed answers
+- AI-generated resolution responses
+- Escalation detection and ticket creation
+- Executive report generation and analytics dashboard
+- Authentication, customer management, ticket management, and knowledge management
+- Responsive interface for desktop and mobile workflows
 
-### Sentiment Agent
+## 🧠 AI Agent Architecture
 
-Analyzes customer emotion and urgency.
+ResolveAI uses a layered orchestrator that coordinates these agents:
 
-### Customer Profile Agent
+- `IntentAgent` - classifies the support issue
+- `SentimentAgent` - estimates tone, urgency, and emotional state
+- `CustomerProfileAgent` - loads the customer profile and previous cases
+- `KnowledgeAgent` - retrieves relevant policies and knowledge snippets
+- `ResolutionAgent` - generates the final response using context and policy retrieval
+- `EscalationAgent` - decides whether human intervention is required
 
-Retrieves customer information from the database.
+## 🔄 System Workflow
 
-### Knowledge Agent
+```mermaid
+flowchart TD
+  A[Customer Message] --> B[AI Orchestrator]
+  B --> C[Intent Agent]
+  B --> D[Sentiment Agent]
+  B --> E[CustomerProfileAgent]
+  B --> F[Knowledge Agent]
+  C --> G[Resolution Agent]
+  D --> G
+  E --> G
+  F --> G
+  G --> H[Escalation Agent]
+  H --> I{Escalate?}
+  I -->|Yes| J[Ticket Generation]
+  I -->|No| K[Resolved Response]
+  J --> L[Executive Report]
+  K --> L
+  L --> M[Analytics]
+```
 
-Searches company policies and knowledge base.
-
-### Resolution Agent
-
-Generates personalized responses.
-
-### Escalation Agent
-
-Determines whether human intervention is required.
-
----
-
-## Features
-
-- User Authentication
-- Multi-Agent AI Workflow
-- Customer Management
-- Ticket Management
-- Knowledge Retrieval
-- Executive Report
-- Analytics Dashboard
-- Responsive UI
-
----
-
-## Technology Stack
+## 🏗️ Technology Stack
 
 ### Frontend
 
-- React
+- React 19
 - Vite
-- Tailwind CSS
 - React Router
+- Axios
 - Framer Motion
+- Chart.js
+- Tailwind CSS v4
 
 ### Backend
 
 - Node.js
 - Express.js
+- MongoDB + Mongoose
+- JWT authentication
+- Multer for uploads
+- pdf-parse, mammoth, and jszip for document handling
 
-### Database
+### AI and Data
 
-- MongoDB Atlas
+- OpenAI API for response generation
+- Gemini fallback helper for resilience
+- Knowledge retrieval pipeline with local knowledge store and vector matching
+- MongoDB for users, customers, conversations, and tickets
 
-### AI
+## 🧭 Architecture Diagram
 
-- OpenAI API
+```mermaid
+flowchart LR
+  U[User] --> F[React Frontend]
+  F --> API[Express REST API]
+  API --> ORCH[AI Orchestrator]
+  ORCH --> IA[IntentAgent]
+  ORCH --> SA[SentimentAgent]
+  ORCH --> CPA[CustomerProfileAgent]
+  ORCH --> KA[KnowledgeAgent]
+  ORCH --> RA[ResolutionAgent]
+  ORCH --> EA[EscalationAgent]
+  ORCH --> TG[Ticket Generation]
+  ORCH --> ER[Executive Report]
+  ER --> AN[Analytics]
+  API <--> DB[(MongoDB)]
+  RA --> OAI[OpenAI]
+  KA --> KB[Knowledge Base]
+```
 
-### Deployment
+### Diagram export recommendations
 
-- Vercel
-- Render
+- Export Mermaid diagrams as SVG for GitHub rendering and crisp PDF export.
+- Keep one architecture diagram and one workflow diagram in the README to preserve mobile readability.
+- If you add a visual asset, place a PNG or SVG version under `docs/diagrams/` and link it next to the Mermaid block.
 
----
+## 📷 Screenshots
 
-## Folder Structure
+![Landing / Hero](docs/screenshots/hero.png)
 
-frontend/
-backend/
+Put screenshots in `docs/screenshots/` in this order for the cleanest judge flow:
 
----
+1. `docs/screenshots/hero.png` - Landing / Hero
+2. `docs/screenshots/dashboard.png` - Dashboard
+3. `docs/screenshots/customers.png` - Customers
+4. `docs/screenshots/workspace.png` - AI Workspace
+5. `docs/screenshots/tickets.png` - Tickets
+6. `docs/screenshots/ai-resolution.png` - AI Resolution
+7. `docs/screenshots/analytics.png` - Analytics
 
-## Installation
+Suggested captions:
 
-### Backend
+- Landing / Hero: product promise, brand, and immediate context
+- Dashboard: operations overview and system health
+- Customers: support context and account history
+- AI Workspace: orchestrator visibility and workflow execution
+- Tickets: escalation and case handling
+- AI Resolution: generated reply and reasoning
+- Analytics: impact, trends, and performance
 
-npm install
+## ⚙️ Installation
 
-npm run dev
+### Prerequisites
+
+- Node.js 18+
+- MongoDB Atlas or local MongoDB
+- OpenAI API key
 
 ### Frontend
 
+```bash
 npm install
-
 npm run dev
+```
 
----
+### Backend
 
-## Environment Variables
+```bash
+cd backend
+npm install
+npm run dev
+```
 
-Backend
+## 🔐 Environment Variables
 
-MONGODB_URI=
+### Frontend
 
-JWT_SECRET=
+Create a root `.env` file from `.env.example`:
 
-OPENAI_API_KEY=
+```env
+VITE_API_URL=http://localhost:5000
+```
 
-Frontend
+### Backend
 
-VITE_API_URL=
+Create `backend/.env` from `backend/.env.example`:
 
----
+```env
+PORT=5000
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<database>
+JWT_SECRET=replace-with-a-strong-secret
+OPENAI_API_KEY=sk-your-openai-key
+OPENAI_MODEL=gpt-4o-mini
+GEMINI_API_KEY=
+NODE_ENV=development
+```
 
-## Workflow
+## 🗂️ Project Structure
 
-Customer
+```text
+resolveai/
+├─ src/
+│  ├─ components/
+│  ├─ pages/
+│  ├─ routes/
+│  └─ services/
+├─ backend/
+│  ├─ config/
+│  ├─ controllers/
+│  ├─ data/
+│  ├─ middleware/
+│  ├─ models/
+│  ├─ routes/
+│  └─ services/
+├─ Architecture.md
+├─ README.md
+└─ TECHNICAL_REPORT.md
+```
 
-↓
+## 🔌 API Overview
 
-Intent Agent
+Base URL: `VITE_API_URL` on the frontend, defaulting to `http://localhost:5000`.
 
-↓
+### Authentication
 
-Sentiment Agent
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 
-↓
+### Customers
 
-Customer Profile Agent
+- `GET /api/customers`
+- `POST /api/customers`
+- `GET /api/customers/:id`
+- `PUT /api/customers/:id`
+- `DELETE /api/customers/:id`
 
-↓
+### Tickets
 
-Knowledge Retrieval Agent
+- `GET /api/tickets`
+- `POST /api/tickets`
+- `GET /api/tickets/:id`
+- `PUT /api/tickets/:id`
+- `DELETE /api/tickets/:id`
+- `GET /api/tickets/analytics`
 
-↓
+### Conversations
 
-Resolution Agent
+- `GET /api/conversations`
+- `POST /api/conversations`
 
-↓
+### AI Orchestration
 
-Escalation Agent
+- `POST /api/ai/process`
+- `GET /api/ai/health`
+- `GET /api/ai/metrics`
+- `GET /api/ai/logs`
+- `GET /api/ai/state`
+- `GET /api/ai/state/:workflowId`
+- `GET /api/ai/monitor`
 
-↓
+### Knowledge
 
-Ticket Creation
+- `GET /api/knowledge`
+- `POST /api/knowledge/upload`
+- `POST /api/knowledge/retrieve`
+- `GET /api/knowledge/monitor`
+- `DELETE /api/knowledge/:id`
 
-↓
+### Analytics
 
-Executive Report
+- `GET /api/analytics`
 
----
+## 🚢 Deployment
 
-## Future Enhancements
+### Frontend
 
-- CRM Integration
-- Email Automation
-- Voice Support
-- Live Chat
-- Multi-language Support
-- AI Learning from Feedback
+Deploy the Vite app to Vercel or any static hosting platform.
 
----
+### Backend
 
-## Team
+Deploy the Express API to Render, Railway, or another Node.js host.
 
-AgentForge
+### Database
 
-Project Name:
+Use MongoDB Atlas for production deployments.
 
-ResolveAI
+## 🌐 Live Demo
+
+> Add the live demo URL here before submission.
+
+## 🎥 Demo Video
+
+> Add the demo video URL here before submission.
+
+## 🔮 Future Enhancements
+
+- Real-time chat and agent handoff
+- Email and notification automation
+- Multi-language support
+- Advanced SLA tracking
+- Role-based admin controls
+- CRM integrations
+- Voice support and call transcript processing
+- Feedback-driven model tuning
+
+## 👥 Team
+
+- Team Name: ResolveAI
+- Project Type: Hackathon submission
+- Contributors: Add teammate names and roles here
+
+## 📄 License
+
+Released under the MIT License. Update the repository license file if needed before public release.
