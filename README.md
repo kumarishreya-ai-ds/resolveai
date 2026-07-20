@@ -144,35 +144,23 @@ flowchart LR
   KA --> KB[Knowledge Base]
 ```
 
-### Diagram export recommendations
-
-- Export Mermaid diagrams as SVG for GitHub rendering and crisp PDF export.
-- Keep one architecture diagram and one workflow diagram in the README to preserve mobile readability.
-- If you add a visual asset, place a PNG or SVG version under `docs/diagrams/` and link it next to the Mermaid block.
-
 ## 📷 Screenshots
 
-![Landing / Hero](docs/screenshots/hero.png)
-
-Put screenshots in `docs/screenshots/` in this order for the cleanest judge flow:
-
-1. `docs/screenshots/hero.png` - Landing / Hero
-2. `docs/screenshots/dashboard.png` - Dashboard
-3. `docs/screenshots/customers.png` - Customers
-4. `docs/screenshots/workspace.png` - AI Workspace
-5. `docs/screenshots/tickets.png` - Tickets
-6. `docs/screenshots/ai-resolution.png` - AI Resolution
-7. `docs/screenshots/analytics.png` - Analytics
-
-Suggested captions:
-
+1. <img width="1260" height="978" alt="hero" src="https://github.com/user-attachments/assets/57b7574c-f69a-4efd-8190-afbae585909b" />
 - Landing / Hero: product promise, brand, and immediate context
-- Dashboard: operations overview and system health
-- Customers: support context and account history
+2. <img width="1328" height="950" alt="dashboard" src="https://github.com/user-attachments/assets/8ba61035-0a43-4546-93f6-f0c6b9ef1358" />
+ - Dashboard: operations overview and system health
+3. <img width="1376" height="862" alt="customers" src="https://github.com/user-attachments/assets/01d3b2f1-dab3-4479-8e17-be05cfb562c4" />
+ - Customers: support context and account history
+4. <img width="1326" height="986" alt="workspace" src="https://github.com/user-attachments/assets/0447dd39-02b5-4f3e-bb77-aeb825d893d1" />
 - AI Workspace: orchestrator visibility and workflow execution
+5. <img width="1325" height="931" alt="tickets" src="https://github.com/user-attachments/assets/bbeafe4c-4309-425d-99cc-3e1587f36af6" />
 - Tickets: escalation and case handling
-- AI Resolution: generated reply and reasoning
+6. <img width="570" height="773" alt="ai-resolution" src="https://github.com/user-attachments/assets/5e3bd0b7-3d7c-4124-a3b2-6a6bda2d8f2a" />
+ - AI Resolution: generated reply and reasoning
+7. <img width="1287" height="977" alt="analytics" src="https://github.com/user-attachments/assets/dc539a9e-be61-4ec3-ab32-b9fa6e8ef5d4" />
 - Analytics: impact, trends, and performance
+
 
 ## ⚙️ Installation
 
